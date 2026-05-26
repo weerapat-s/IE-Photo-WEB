@@ -10,6 +10,12 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
+// ตรวจชื่อสมาชิก เพื่อแสดงแบนเนอร์แจ้งเตือน
+$uRow = $pdo->prepare("SELECT first_name, last_name FROM users WHERE id = ?");
+$uRow->execute([$user_id]);
+$uInfo = $uRow->fetch();
+$needsName = empty($uInfo['first_name']) || trim($uInfo['first_name'], '?') === '';
+
 // Show only studio feeds (booking_id IS NULL) and feeds related to the current user's own bookings
 $query = "
     SELECT f.id as feed_id, f.message, f.created_at,
@@ -41,6 +47,20 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="alert alert-success" style="text-align:center;">
         <i class="ph-bold ph-hands-clapping" style="font-size:1.3rem;"></i>
         <strong>ตั้งค่าโปรไฟล์เรียบร้อย!</strong> ยินดีต้อนรับเข้าใช้งานระบบ IE-Photo Maker
+    </div>
+<?php endif; ?>
+
+<?php if($needsName): ?>
+    <div class="alert" style="background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1.5px solid #f59e0b;color:#92400e;border-radius:14px;display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;margin-bottom:1rem;">
+        <i class="ph-bold ph-warning" style="font-size:1.4rem;color:#f59e0b;flex-shrink:0;"></i>
+        <div style="flex:1">
+            <strong>กรุณากรอกชื่อ-นามสกุลของคุณ</strong><br>
+            <span style="font-size:.85rem;">ระบบต้องการชื่อเพื่อแสดงในการจองและติดต่อ</span>
+        </div>
+        <a href="<?php echo $base_url; ?>member/profile.php" class="btn btn-sm"
+           style="background:#f59e0b;color:#fff;border:none;white-space:nowrap;flex-shrink:0;">
+            <i class="ph-bold ph-pencil-simple"></i> กรอกชื่อเลย
+        </a>
     </div>
 <?php endif; ?>
 

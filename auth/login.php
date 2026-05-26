@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (str_contains($identifier, '@') && !str_ends_with(strtolower($identifier), '@kmitl.ac.th')) {
             $error = 'อนุญาตเฉพาะอีเมล @kmitl.ac.th เท่านั้น';
         } else {
-            $stmt = $pdo->prepare("SELECT id, email, password, role, profile_completed FROM users WHERE student_id = ? OR email = ?");
+            $stmt = $pdo->prepare("SELECT id, email, password, role, profile_completed, first_name, last_name FROM users WHERE student_id = ? OR email = ?");
             $stmt->execute([$identifier, $identifier]);
             $user = $stmt->fetch();
 
@@ -50,12 +50,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['role']    = $user['role'];
                 $_SESSION['email']   = $user['email'];
 
-                if (!in_array($user['role'], ['admin', 'super_admin']) && !$user['profile_completed']) {
+                $isAdminRole = in_array($user['role'], ['admin', 'super_admin']);
+
+                // ตรวจชื่อ: ยังไม่กรอก หรือเสียหาย (มีแต่ ?)
+                $nameOk = !$isAdminRole && !empty($user['first_name'])
+                    && trim($user['first_name'], '?') !== '';
+
+                if (!$isAdminRole && (!$user['profile_completed'] || !$nameOk)) {
                     header("Location: ../member/profile.php?first_login=1");
                     exit;
                 }
 
-                $isAdminRole = in_array($user['role'], ['admin', 'super_admin']);
                 header("Location: " . ($isAdminRole ? '../admin/dashboard.php' : '../member/feed.php'));
                 exit;
             } else {
