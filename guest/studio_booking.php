@@ -26,64 +26,85 @@ if (isset($_SESSION['user_id'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $studio_id = intval($_POST['studio_id'] ?? 0);
-    $guest_name = trim($_POST['guest_name'] ?? '');
-    $guest_email = trim($_POST['guest_email'] ?? '');
-    $usage_reason = trim($_POST['usage_reason'] ?? '');
-    $usage_type = trim($_POST['usage_type'] ?? '');
-    $start_datetime = $_POST['start_datetime'] ?? '';
-    $end_datetime = $_POST['end_datetime'] ?? '';
-
-    if (empty($guest_name) || empty($guest_email) || $studio_id <= 0 || empty($start_datetime) || empty($end_datetime) || empty($usage_reason)) {
-        $error = 'กรุณากรอกข้อมูลให้ครบถ้วนทุกช่อง';
-    } elseif (strtotime($start_datetime) < time() - 3600) {
-        $error = 'ไม่สามารถจองวันเวลาในอดีตได้';
-    } elseif (strtotime($start_datetime) >= strtotime($end_datetime)) {
-        $error = 'เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น';
+    // ── CSRF ─────────────────────────────────────────────────────────────────
+    if (!csrf_verify()) {
+        $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
     } else {
-        // ตรวจสอบ booking conflict ก่อน insert
-        $cStmt = $pdo->prepare("
-            SELECT id FROM bookings
-            WHERE item_id = ? AND booking_type = 'studio'
-              AND status IN ('pending','approved')
-              AND start_datetime < ? AND end_datetime > ?
-        ");
-        $cStmt->execute([$studio_id, $end_datetime, $start_datetime]);
-        if ($cStmt->fetch()) {
-            $error = 'สตูดิโอนี้ถูกจองในช่วงเวลาดังกล่าวแล้ว กรุณาเลือกเวลาอื่น';
-        }
-    }
-    if (!$error && $_SERVER['REQUEST_METHOD'] === 'POST' && $studio_id > 0) {
-        $user_id = $_SESSION['user_id'] ?? null;
-        $insert = $pdo->prepare("INSERT INTO bookings (booking_type, item_id, user_id, guest_name, guest_email, usage_reason, usage_type, start_datetime, end_datetime, status)
-                                 VALUES ('studio', ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
-        if ($insert->execute([$studio_id, $user_id, $guest_name, $guest_email, $usage_reason, $usage_type, $start_datetime, $end_datetime])) {
-            $success = 'ส่งคำขอจองสตูดิโอเรียบร้อยแล้ว! รอการอนุมัติจากผู้ดูแลระบบ';
+        $studio_id    = intval($_POST['studio_id'] ?? 0);
+        $guest_name   = trim($_POST['guest_name'] ?? '');
+        $guest_email  = trim($_POST['guest_email'] ?? '');
+        $usage_reason = trim($_POST['usage_reason'] ?? '');
+        $usage_type   = trim($_POST['usage_type'] ?? '');
+        $start_datetime = $_POST['start_datetime'] ?? '';
+        $end_datetime   = $_POST['end_datetime'] ?? '';
 
-            // Notify admin
-            // Notify all admins
-            $studioStmt = $pdo->prepare("SELECT name FROM studios WHERE id = ?");
-            $studioStmt->execute([$studio_id]);
-            $studioName = $studioStmt->fetchColumn();
-            $emailBody = getBookingPendingEmailTemplate($guest_name, $studioName, 'studio');
-            sendEmailToAllAdmins($pdo, "IE-Photo: คำขอจองสตูดิโอใหม่จาก {$guest_name}", $emailBody);
+        // ── Input validation ──────────────────────────────────────────────
+        if (empty($guest_name) || empty($guest_email) || $studio_id <= 0
+            || empty($start_datetime) || empty($end_datetime) || empty($usage_reason)) {
+            $error = 'กรุณากรอกข้อมูลให้ครบถ้วนทุกช่อง';
+        } elseif (!filter_var($guest_email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'รูปแบบอีเมลไม่ถูกต้อง';
+        } elseif (strtotime($start_datetime) < time() - 3600) {
+            $error = 'ไม่สามารถจองวันเวลาในอดีตได้';
+        } elseif (strtotime($start_datetime) >= strtotime($end_datetime)) {
+            $error = 'เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น';
         } else {
-            $error = 'เกิดข้อผิดพลาดในการส่งคำขอ โปรดลองอีกครั้ง';
+            // ── Conflict check ────────────────────────────────────────────
+            $cStmt = $pdo->prepare("
+                SELECT id FROM bookings
+                WHERE item_id = ? AND booking_type = 'studio'
+                  AND status IN ('pending','approved')
+                  AND start_datetime < ? AND end_datetime > ?
+            ");
+            $cStmt->execute([$studio_id, $end_datetime, $start_datetime]);
+            if ($cStmt->fetch()) {
+                $error = 'สตูดิโอนี้ถูกจองในช่วงเวลาดังกล่าวแล้ว กรุณาเลือกเวลาอื่น';
+            }
         }
-    }
+
+        // ── Insert ────────────────────────────────────────────────────────
+        if (!$error && $studio_id > 0) {
+            $user_id = $_SESSION['user_id'] ?? null;
+            try {
+                $insert = $pdo->prepare("
+                    INSERT INTO bookings
+                        (booking_type, item_id, user_id, guest_name, guest_email,
+                         usage_reason, usage_type, start_datetime, end_datetime, status)
+                    VALUES ('studio', ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+                ");
+                $insert->execute([$studio_id, $user_id, $guest_name, $guest_email,
+                                  $usage_reason, $usage_type, $start_datetime, $end_datetime]);
+                $success = 'ส่งคำขอจองสตูดิโอเรียบร้อยแล้ว! รอการอนุมัติจากผู้ดูแลระบบ';
+
+                // Notify admins (non-critical — wrap separately)
+                try {
+                    $studioStmt = $pdo->prepare("SELECT name FROM studios WHERE id = ?");
+                    $studioStmt->execute([$studio_id]);
+                    $studioName = $studioStmt->fetchColumn();
+                    $emailBody  = getBookingPendingEmailTemplate($guest_name, $studioName, 'studio');
+                    sendEmailToAllAdmins($pdo, "IE-Photo: คำขอจองสตูดิโอใหม่จาก {$guest_name}", $emailBody);
+                } catch (Exception $eEmail) {
+                    error_log("Studio booking email error: " . $eEmail->getMessage());
+                }
+            } catch (Exception $e) {
+                error_log("Studio booking insert error: " . $e->getMessage());
+                $error = 'เกิดข้อผิดพลาดในการส่งคำขอ โปรดลองอีกครั้ง';
+            }
+        }
+    } // end csrf/input block
 }
 
 $base_url = '../';
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div style="max-width:900px; margin:0 auto;">
+<div class="page-container">
     <div class="page-header">
         <h2>จองการใช้งานห้องสตูดิโอ</h2>
         <p>เลือกสตูดิโอและวันเวลาที่ต้องการด้านล่าง</p>
     </div>
 
-    <div class="grid-2">
+    <div class="studio-booking-grid">
         <!-- Studio Previews -->
         <div class="glass-card animate-in">
             <h3 style="font-size:1.1rem;margin-bottom:1.2rem;"><i class="ph-bold ph-images"></i> ตัวอย่างห้องสตูดิโอ</h3>
@@ -121,6 +142,7 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endif; ?>
 
             <form method="POST" action="studio_booking.php">
+                <?php echo csrf_input(); ?>
                 <div class="form-group">
                     <label for="guest_name"><i class="ph ph-user"></i> ชื่อ-นามสกุล</label>
                     <input type="text" id="guest_name" name="guest_name" class="form-control" placeholder="ระบุชื่อจริง" required value="<?php echo htmlspecialchars($prefill_name); ?>">

@@ -25,6 +25,9 @@ try { $pdo->query("SELECT 1 FROM tasks LIMIT 1"); } catch (Exception $e) {
 
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
+    if (!csrf_verify()) {
+        $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
+    }
     $task_id = intval($_POST['task_id'] ?? 0);
     $status = $_POST['status'] ?? '';
     if ($task_id > 0 && in_array($status, ['pending', 'in_progress', 'completed'])) {
@@ -111,6 +114,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
             <?php if(!in_array($t['status'],['completed','cancelled'])):?>
             <form method="POST" style="display:flex;gap:.5rem;">
+                <?php echo csrf_input(); ?>
                 <input type="hidden" name="task_id" value="<?php echo $t['id'];?>">
                 <input type="hidden" name="update_status" value="1">
                 <?php if($t['status']==='pending'):?>

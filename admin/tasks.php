@@ -39,7 +39,9 @@ if (!$tableExists) {
 
 // Handle actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['create_task'])) {
+    if (!csrf_verify()) {
+        $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
+    } elseif (isset($_POST['create_task'])) {
         $title = trim($_POST['title'] ?? '');
         $description = trim($_POST['description'] ?? '');
         $assigned_to = intval($_POST['assigned_to'] ?? 0);
@@ -136,6 +138,7 @@ require_once __DIR__ . '/../includes/header.php';
 <div id="createForm" class="glass-card" style="display:none;margin-bottom:1.5rem;border:2px solid var(--primary);">
     <h3 style="font-size:1rem;margin-bottom:1rem;"><i class="ph-bold ph-plus-circle"></i> สร้างงานใหม่</h3>
     <form method="POST">
+        <?php echo csrf_input(); ?>
         <div class="form-row">
             <div class="form-group" style="flex:2"><label>ชื่องาน</label><input type="text" name="title" class="form-control" required placeholder="เช่น จัดเตรียมอุปกรณ์ถ่ายภาพ"></div>
             <div class="form-group" style="flex:1"><label>มอบหมายให้</label>
@@ -190,6 +193,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
             <div style="display:flex;gap:.3rem;flex-wrap:wrap;">
                 <form method="POST" style="display:flex;gap:.3rem;align-items:center;flex:1;">
+                    <?php echo csrf_input(); ?>
                     <input type="hidden" name="task_id" value="<?php echo $t['id'];?>">
                     <select name="status" class="form-control" style="font-size:.8rem;padding:.35rem .6rem;" onchange="this.form.submit()">
                         <option value="pending" <?php echo $t['status']==='pending'?'selected':'';?>>⏳ รอ</option>
@@ -199,7 +203,7 @@ require_once __DIR__ . '/../includes/header.php';
                     </select>
                     <input type="hidden" name="update_status" value="1">
                 </form>
-                <form method="POST" onsubmit="return confirm('ลบงานนี้?')"><input type="hidden" name="task_id" value="<?php echo $t['id'];?>">
+                <form method="POST" onsubmit="return confirm('ลบงานนี้?')"><?php echo csrf_input();?><input type="hidden" name="task_id" value="<?php echo $t['id'];?>">
                     <button name="delete_task" value="1" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);padding:.35rem .5rem;"><i class="ph-bold ph-trash"></i></button></form>
             </div>
         </div>

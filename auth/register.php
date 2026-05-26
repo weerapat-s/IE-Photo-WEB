@@ -8,6 +8,10 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!csrf_verify()) {
+        $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
+    }
+    if (!$error):
     $student_id = isset($_POST['student_id']) ? trim($_POST['student_id']) : '';
     $first_name = isset($_POST['first_name']) ? trim($_POST['first_name']) : '';
     $last_name  = isset($_POST['last_name'])  ? trim($_POST['last_name'])  : '';
@@ -71,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+    endif; // csrf_verify
 }
 
 $base_url = '../';
@@ -95,6 +100,7 @@ require_once __DIR__ . '/../includes/header.php';
         <?php endif; ?>
 
         <form method="POST" action="register.php">
+            <?php echo csrf_input(); ?>
             <div class="form-group">
                 <label for="student_id"><i class="ph ph-identification-card"></i> รหัสนักศึกษา (8 หลัก)</label>
                 <div class="input-group">

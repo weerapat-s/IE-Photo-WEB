@@ -14,7 +14,9 @@ $success = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['send_reminder'])) {
+    if (!csrf_verify()) {
+        $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
+    } elseif (isset($_POST['send_reminder'])) {
         $booking_id = intval($_POST['booking_id'] ?? 0);
         // Sanitize custom_msg ก่อน embed ใน HTML email
         $custom_msg = htmlspecialchars(trim($_POST['custom_msg'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -74,6 +76,7 @@ require_once __DIR__ . '/../includes/header.php';
         <h3 style="font-size:1.05rem;margin-bottom:1rem;"><i class="ph-bold ph-envelope"></i> ส่งอีเมลแจ้งเตือนคืนอุปกรณ์</h3>
         <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem;">ส่งอีเมลถึงสมาชิกที่กำลังยืมอุปกรณ์อยู่</p>
         <form method="POST">
+            <?php echo csrf_input(); ?>
             <div class="form-group">
                 <label>เลือกรายการที่ยืมอยู่</label>
                 <select name="booking_id" class="form-control" required>
@@ -104,7 +107,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <div style="font-weight:600;font-size:.9rem;"><?php echo htmlspecialchars($uc['sender']);?> → <?php echo htmlspecialchars($uc['receiver']);?></div>
                         <div style="font-size:.78rem;color:var(--text-muted);"><i class="ph ph-clock"></i> <?php echo date('d M, H:i',strtotime($uc['created_at']));?></div>
                     </div>
-                    <form method="POST"><input type="hidden" name="call_id" value="<?php echo $uc['id'];?>">
+                    <form method="POST"><?php echo csrf_input();?><input type="hidden" name="call_id" value="<?php echo $uc['id'];?>">
                         <button name="resolve_call" class="btn btn-outline btn-sm">จัดการแล้ว</button></form>
                 </div>
             <?php endforeach;?>

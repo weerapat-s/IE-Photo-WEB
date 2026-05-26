@@ -12,7 +12,9 @@ $success = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['add_equipment'])) {
+    if (!csrf_verify()) {
+        $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
+    } elseif (isset($_POST['add_equipment'])) {
         $name = trim($_POST['name'] ?? '');
         $type = $_POST['type'] ?? '';
         if (!empty($name) && in_array($type, ['camera', 'lens', 'accessory'])) {
@@ -98,6 +100,7 @@ require_once __DIR__ . '/../includes/header.php';
 <div id="addForm" class="glass-card" style="display:none;margin-bottom:1.5rem;border:2px solid var(--primary);">
     <h3 style="font-size:1rem;margin-bottom:1rem;"><i class="ph-bold ph-plus-circle"></i> เพิ่มอุปกรณ์ใหม่</h3>
     <form method="POST" class="form-row" style="align-items:flex-end;">
+        <?php echo csrf_input(); ?>
         <div class="form-group" style="flex:2;margin-bottom:0;"><label>ชื่ออุปกรณ์</label><input type="text" name="name" class="form-control" required placeholder="เช่น Sony A7IV"></div>
         <div class="form-group" style="flex:1;margin-bottom:0;"><label>ประเภท</label>
             <select name="type" class="form-control" required><option value="camera">📷 กล้อง</option><option value="lens">🔍 เลนส์</option><option value="accessory">📦 อุปกรณ์เสริม</option></select>
@@ -126,6 +129,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <td><span class="badge <?php echo $badgeClass;?>">● <?php echo $label;?></span></td>
                     <td>
                         <form method="POST" style="display:flex;gap:.3rem;align-items:center;">
+                            <?php echo csrf_input(); ?>
                             <input type="hidden" name="eq_id" value="<?php echo $eq['id'];?>">
                             <select name="status" class="form-control" style="width:auto;padding:.4rem .8rem;font-size:.82rem;" onchange="if(confirm('เปลี่ยนสถานะ?'))this.form.submit()">
                                 <option value="available" <?php if($eq['status']=='available')echo'selected';?>>พร้อมใช้งาน</option>
@@ -137,7 +141,7 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td>
                         <div style="display:flex;gap:.3rem;">
-                            <form method="POST" onsubmit="return confirm('ลบอุปกรณ์นี้?');"><input type="hidden" name="eq_id" value="<?php echo $eq['id'];?>">
+                            <form method="POST" onsubmit="return confirm('ลบอุปกรณ์นี้?');"><?php echo csrf_input();?><input type="hidden" name="eq_id" value="<?php echo $eq['id'];?>">
                                 <button name="delete_equipment" value="1" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);padding:.35rem .6rem;"><i class="ph-bold ph-trash"></i></button></form>
                         </div>
                     </td>
@@ -157,14 +161,14 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="mc-header"><strong><?php echo htmlspecialchars($eq['name']);?></strong><span class="badge <?php echo $badgeClass;?>"><?php echo $label;?></span></div>
             <div class="mc-row"><span class="mc-label">ประเภท</span><span><?php echo $eq['type']==='camera'?'📷 กล้อง':($eq['type']==='lens'?'🔍 เลนส์':'📦 เสริม');?></span></div>
             <div class="mc-actions">
-                <form method="POST" style="flex:1;display:flex;gap:.3rem;align-items:center;"><input type="hidden" name="eq_id" value="<?php echo $eq['id'];?>">
+                <form method="POST" style="flex:1;display:flex;gap:.3rem;align-items:center;"><?php echo csrf_input();?><input type="hidden" name="eq_id" value="<?php echo $eq['id'];?>">
                     <select name="status" class="form-control" style="font-size:.82rem;padding:.4rem;" onchange="if(confirm('เปลี่ยน?'))this.form.submit()">
                         <option value="available" <?php if($eq['status']=='available')echo'selected';?>>พร้อม</option>
                         <option value="borrowed" <?php if($eq['status']=='borrowed')echo'selected';?>>ยืม</option>
                         <option value="maintenance" <?php if($eq['status']=='maintenance')echo'selected';?>>ซ่อม</option>
                     </select><input type="hidden" name="update_status" value="1">
                 </form>
-                <form method="POST" onsubmit="return confirm('ลบ?')"><input type="hidden" name="eq_id" value="<?php echo $eq['id'];?>">
+                <form method="POST" onsubmit="return confirm('ลบ?')"><?php echo csrf_input();?><input type="hidden" name="eq_id" value="<?php echo $eq['id'];?>">
                     <button name="delete_equipment" value="1" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);"><i class="ph-bold ph-trash"></i></button></form>
             </div>
         </div>

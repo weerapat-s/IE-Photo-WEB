@@ -13,24 +13,30 @@ $success = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!csrf_verify()) {
+        $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
+    }
     $phone = trim($_POST['phone'] ?? '');
     $profile_image = $_POST['current_image'] ?? 'default.png';
 
-    if (isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] === UPLOAD_ERR_OK) {
-        $tmp_name = $_FILES['profile_image']['tmp_name'];
-        $ext = strtolower(pathinfo(basename($_FILES['profile_image']['name']), PATHINFO_EXTENSION));
-        // ตรวจสอบ MIME type จริง ไม่ใช่แค่ extension
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime  = finfo_file($finfo, $tmp_name);
-        finfo_close($finfo);
-        $allowedMimes = ['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'];
-        if (in_array($ext, ['jpg','jpeg','png','gif','webp']) && isset($allowedMimes[$mime])) {
-            $new_name = $user_id . '_' . time() . '.' . $allowedMimes[$mime];
-            $upload_dir = __DIR__ . '/../uploads/profiles/';
-            if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
-            if (move_uploaded_file($tmp_name, $upload_dir . $new_name)) { $profile_image = $new_name; }
-            else { $error = 'อัปโหลดรูปไม่สำเร็จ'; }
-        } else { $error = 'รูปแบบไฟล์ไม่รองรับ (รองรับ JPG, PNG, GIF, WebP)'; }
+    if (!$error && isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] === UPLOAD_ERR_OK) {
+        if ($_FILES['profile_image']['size'] > 4 * 1024 * 1024) {
+            $error = 'รูปโปรไฟล์ต้องไม่เกิน 4 MB';
+        } else {
+            $tmp_name = $_FILES['profile_image']['tmp_name'];
+            $ext = strtolower(pathinfo(basename($_FILES['profile_image']['name']), PATHINFO_EXTENSION));
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime  = finfo_file($finfo, $tmp_name);
+            finfo_close($finfo);
+            $allowedMimes = ['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'];
+            if (in_array($ext, ['jpg','jpeg','png','gif','webp']) && isset($allowedMimes[$mime])) {
+                $new_name = $user_id . '_' . time() . '.' . $allowedMimes[$mime];
+                $upload_dir = __DIR__ . '/../uploads/profiles/';
+                if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+                if (move_uploaded_file($tmp_name, $upload_dir . $new_name)) { $profile_image = $new_name; }
+                else { $error = 'อัปโหลดรูปไม่สำเร็จ'; }
+            } else { $error = 'รูปแบบไฟล์ไม่รองรับ (รองรับ JPG, PNG, GIF, WebP)'; }
+        }
     }
 
     if (!$error) {
@@ -68,6 +74,7 @@ require_once __DIR__ . '/../includes/header.php';
         <?php if($error):?><div class="alert alert-danger"><i class="ph-bold ph-warning-circle"></i> <?php echo htmlspecialchars($error);?></div><?php endif;?>
 
         <form method="POST" action="profile.php<?php echo isset($_GET['first_login'])?'?first_login=1':'';?>" enctype="multipart/form-data">
+            <?php echo csrf_input(); ?>
             <div style="text-align:center;margin-bottom:2rem;">
                 <?php
                 $imgPath = $user['profile_image'] !== 'default.png' ? "../uploads/profiles/".$user['profile_image'] : "https://ui-avatars.com/api/?name=".urlencode($user['student_id'])."&background=F2531C&color=fff&size=512";

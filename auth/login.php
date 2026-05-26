@@ -8,7 +8,7 @@ if (isset($_SESSION['user_id'])) {
     if ($_SESSION['role'] === 'admin') {
         header("Location: ../admin/dashboard.php");
     } else {
-        header("Location: ../member/profile.php");
+        header("Location: ../member/feed.php");
     }
     exit;
 }
@@ -16,39 +16,51 @@ if (isset($_SESSION['user_id'])) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $identifier = isset($_POST['identifier']) ? trim($_POST['identifier']) : '';
-    $password = isset($_POST['password']) ? $_POST['password'] : '';
-
-    if (empty($identifier) || empty($password)) {
-        $error = 'กรุณากรอกข้อมูลให้ครบถ้วน';
-    } elseif (str_contains($identifier, '@') && !str_ends_with(strtolower($identifier), '@kmitl.ac.th')) {
-        $error = 'อนุญาตเฉพาะอีเมล @kmitl.ac.th เท่านั้น';
+    // ── CSRF check ──────────────────────────────────────────────────────────
+    if (!csrf_verify()) {
+        $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
+    // ── Rate limiting ────────────────────────────────────────────────────────
+    } elseif (login_locked()) {
+        $error = 'พยายามเข้าสู่ระบบมากเกินไป กรุณารอ ' . login_wait_secs() . ' วินาที แล้วลองใหม่';
     } else {
-        $stmt = $pdo->prepare("SELECT id, email, password, role, profile_completed, email_verified FROM users WHERE student_id = ? OR email = ?");
-        $stmt->execute([$identifier, $identifier]);
-        $user = $stmt->fetch();
+        $identifier = trim($_POST['identifier'] ?? '');
+        $password   = $_POST['password'] ?? '';
 
-        if ($user && password_verify($password, $user['password'])) {
-            // บล็อก login ถ้ายังไม่ยืนยันอีเมล (ยกเว้น admin)
-            if ($user['role'] !== 'admin' && !$user['email_verified']) {
-                $error = 'unverified';
-                $unverifiedEmail = $user['email'];
-            } else {
-                session_regenerate_id(true);
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['role']    = $user['role'];
-                $_SESSION['email']   = $user['email'];
+        if (empty($identifier) || empty($password)) {
+            $error = 'กรุณากรอกข้อมูลให้ครบถ้วน';
+        } elseif (str_contains($identifier, '@') && !str_ends_with(strtolower($identifier), '@kmitl.ac.th')) {
+            $error = 'อนุญาตเฉพาะอีเมล @kmitl.ac.th เท่านั้น';
+        } else {
+            $stmt = $pdo->prepare("SELECT id, email, password, role, profile_completed, email_verified FROM users WHERE student_id = ? OR email = ?");
+            $stmt->execute([$identifier, $identifier]);
+            $user = $stmt->fetch();
 
-                if ($user['role'] !== 'admin' && !$user['profile_completed']) {
-                    header("Location: ../member/profile.php?first_login=1");
+            if ($user && password_verify($password, $user['password'])) {
+                login_reset(); // รีเซ็ตนับเมื่อ login สำเร็จ
+                // บล็อก login ถ้ายังไม่ยืนยันอีเมล (ยกเว้น admin)
+                if ($user['role'] !== 'admin' && !$user['email_verified']) {
+                    $error = 'unverified';
+                    $unverifiedEmail = $user['email'];
+                } else {
+                    session_regenerate_id(true);
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['role']    = $user['role'];
+                    $_SESSION['email']   = $user['email'];
+
+                    if ($user['role'] !== 'admin' && !$user['profile_completed']) {
+                        header("Location: ../member/profile.php?first_login=1");
+                        exit;
+                    }
+
+                    header("Location: " . ($user['role'] === 'admin' ? '../admin/dashboard.php' : '../member/feed.php'));
                     exit;
                 }
-
-                header("Location: " . ($user['role'] === 'admin' ? '../admin/dashboard.php' : '../member/feed.php'));
-                exit;
+            } else {
+                login_record_fail();
+                // หน่วงเวลาเล็กน้อยเพื่อป้องกัน timing attack และ brute force
+                usleep(300000); // 0.3 วินาที
+                $error = 'อีเมล/รหัสนักศึกษา หรือ รหัสผ่านไม่ถูกต้อง';
             }
-        } else {
-            $error = 'อีเมล/รหัสนักศึกษา หรือ รหัสผ่านไม่ถูกต้อง';
         }
     }
 }
@@ -91,6 +103,7 @@ require_once __DIR__ . '/../includes/header.php';
         <?php endif; ?>
 
         <form method="POST" action="login.php" id="login-form">
+            <?php echo csrf_input(); ?>
             <div class="form-group">
                 <label for="identifier"><i class="ph ph-identification-card"></i> รหัสนักศึกษา หรือ อีเมล</label>
                 <div class="input-icon-wrap">

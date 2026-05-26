@@ -29,34 +29,53 @@ if ($is_admin) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $item_ids = $_POST['item_ids'] ?? [];
-    $start_datetime = $_POST['start_datetime'] ?? '';
-    $end_datetime = $_POST['end_datetime'] ?? '';
-    $responsible_user_id = intval($_POST['responsible_user_id'] ?? $user_id);
+    // ── Initialize variables (กัน undefined variable warning) ───────────────
+    $item_ids            = [];
+    $start_datetime      = '';
+    $end_datetime        = '';
+    $responsible_user_id = $user_id;
+    $form_image          = '';
 
-    // Security: non-admin members can only set themselves as responsible
-    if (!$is_admin) {
-        $responsible_user_id = $user_id;
-    }
+    // ── CSRF ─────────────────────────────────────────────────────────────────
+    if (!csrf_verify()) {
+        $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
+    } else {
+        $item_ids            = $_POST['item_ids'] ?? [];
+        $start_datetime      = $_POST['start_datetime'] ?? '';
+        $end_datetime        = $_POST['end_datetime'] ?? '';
+        $responsible_user_id = intval($_POST['responsible_user_id'] ?? $user_id);
 
-    // Handle form image — ตรวจสอบ MIME type จริง
-    $form_image = '';
-    if (isset($_FILES['form_image']) && $_FILES['form_image']['error'] === UPLOAD_ERR_OK) {
-        $tmp_name = $_FILES['form_image']['tmp_name'];
-        $ext = strtolower(pathinfo(basename($_FILES['form_image']['name']), PATHINFO_EXTENSION));
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime  = finfo_file($finfo, $tmp_name);
-        finfo_close($finfo);
-        $allowedMimes = ['image/jpeg'=>'jpg','image/png'=>'png','application/pdf'=>'pdf'];
-        if (in_array($ext, ['jpg','jpeg','png','pdf']) && isset($allowedMimes[$mime])) {
-            $form_image = 'booking_' . time() . '_' . $user_id . '.' . $allowedMimes[$mime];
-            $upload_dir = __DIR__ . '/../uploads/booking_forms/';
-            if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
-            move_uploaded_file($tmp_name, $upload_dir . $form_image);
-        } else {
-            $error = 'รูปแบบไฟล์ไม่รองรับ (รองรับ JPG, PNG, PDF เท่านั้น)';
+        // Security: non-admin members can only set themselves as responsible
+        if (!$is_admin) { $responsible_user_id = $user_id; }
+
+        // ── File upload — ตรวจสอบ MIME + ขนาด ────────────────────────────
+        if (isset($_FILES['form_image']) && $_FILES['form_image']['error'] === UPLOAD_ERR_OK) {
+            if ($_FILES['form_image']['size'] > 8 * 1024 * 1024) {
+                $error = 'ไฟล์ใหญ่เกิน 8 MB กรุณาเลือกไฟล์ขนาดเล็กกว่า';
+            } else {
+                $tmp_name = $_FILES['form_image']['tmp_name'];
+                $ext = strtolower(pathinfo(basename($_FILES['form_image']['name']), PATHINFO_EXTENSION));
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mime  = finfo_file($finfo, $tmp_name);
+                finfo_close($finfo);
+                $allowedMimes = ['image/jpeg'=>'jpg','image/png'=>'png','application/pdf'=>'pdf'];
+                if (in_array($ext, ['jpg','jpeg','png','pdf']) && isset($allowedMimes[$mime])) {
+                    $fname = 'booking_' . time() . '_' . $user_id . '.' . $allowedMimes[$mime];
+                    $upload_dir = __DIR__ . '/../uploads/booking_forms/';
+                    if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+                    if (move_uploaded_file($tmp_name, $upload_dir . $fname)) {
+                        $form_image = $fname;
+                    } else {
+                        $error = 'อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองใหม่';
+                    }
+                } else {
+                    $error = 'รูปแบบไฟล์ไม่รองรับ (รองรับ JPG, PNG, PDF เท่านั้น)';
+                }
+            }
+        } elseif (isset($_FILES['form_image']) && $_FILES['form_image']['error'] !== UPLOAD_ERR_NO_FILE) {
+            $error = 'เกิดปัญหาในการอัปโหลดไฟล์ (error code: ' . (int)$_FILES['form_image']['error'] . ')';
         }
-    }
+    } // end csrf/input block
 
     if (!$error) {
         if (empty($item_ids) || empty($start_datetime) || empty($end_datetime) || empty($form_image)) {
@@ -145,7 +164,7 @@ $base_url = '../';
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div style="max-width:700px; margin:0 auto;">
+<div class="page-container-md">
     <div class="page-header">
         <h2>ยืมอุปกรณ์ถ่ายภาพ</h2>
         <p>เลือกอุปกรณ์ที่ต้องการ (เลือกได้หลายชิ้น) กำหนดผู้รับผิดชอบ แนบเอกสาร</p>
@@ -153,13 +172,14 @@ require_once __DIR__ . '/../includes/header.php';
 
     <div class="glass-card animate-in">
         <?php if($success): ?>
-            <div class="alert alert-success"><i class="ph-bold ph-check-circle"></i> <?php echo $success; ?></div>
+            <div class="alert alert-success"><i class="ph-bold ph-check-circle"></i> <?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?></div>
         <?php endif; ?>
         <?php if($error): ?>
             <div class="alert alert-danger"><i class="ph-bold ph-warning-circle"></i> <?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
 
         <form method="POST" action="borrow_form.php" enctype="multipart/form-data">
+            <?php echo csrf_input(); ?>
             <!-- Equipment Multi-Select -->
             <div class="form-group">
                 <label><i class="ph-bold ph-camera"></i> เลือกอุปกรณ์ <span style="color:var(--text-muted);font-weight:400;">(เลือกได้หลายชิ้น)</span></label>
@@ -228,7 +248,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="upload-zone" id="drop-zone">
                     <i class="ph-bold ph-image"></i>
                     <p>ถ่ายรูป/ลากไฟล์ หรือคลิกเพื่อเลือก</p>
-                    <input type="file" id="form_image" name="form_image" required accept="image/*, .pdf" capture="environment">
+                    <input type="file" id="form_image" name="form_image" required accept="image/*,.pdf">
                     <span id="file-name-display" class="badge" style="background:var(--primary);color:#fff;display:none;margin-top:8px;"></span>
                 </div>
                 <small class="text-muted" style="font-size:.8rem;display:block;margin-top:.3rem;"><i class="ph ph-info"></i> รองรับ JPG, PNG, PDF</small>
