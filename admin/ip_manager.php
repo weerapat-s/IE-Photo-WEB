@@ -47,38 +47,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// ── Statistics ───────────────────────────────────────────────────────────────
-$stats = [];
+// ── Statistics & data (all wrapped — tables may not exist yet) ───────────────
+$stats      = ['active_blocks'=>0,'failed_today'=>0,'success_today'=>0,'unique_ips_today'=>0];
+$blocks     = [];
+$topFails   = [];
+$recentLogs = [];
+$dbError    = false;
+
 try {
     $stats['active_blocks']    = (int) $pdo->query("SELECT COUNT(*) FROM ip_blocks WHERE blocked_until IS NULL OR blocked_until > NOW()")->fetchColumn();
     $stats['failed_today']     = (int) $pdo->query("SELECT COUNT(*) FROM login_logs WHERE success=0 AND created_at >= CURDATE()")->fetchColumn();
     $stats['success_today']    = (int) $pdo->query("SELECT COUNT(*) FROM login_logs WHERE success=1 AND created_at >= CURDATE()")->fetchColumn();
     $stats['unique_ips_today'] = (int) $pdo->query("SELECT COUNT(DISTINCT ip_address) FROM login_logs WHERE created_at >= CURDATE()")->fetchColumn();
-} catch (Exception $e) { $stats = ['active_blocks'=>0,'failed_today'=>0,'success_today'=>0,'unique_ips_today'=>0]; }
 
-// ── Active blocks ─────────────────────────────────────────────────────────────
-$blocks = $pdo->query("SELECT *, CASE WHEN blocked_until IS NULL THEN 'permanent' ELSE IF(blocked_until > NOW(), 'active', 'expired') END AS block_status FROM ip_blocks ORDER BY updated_at DESC LIMIT 100")->fetchAll();
+    $blocks = $pdo->query("
+        SELECT *, CASE WHEN blocked_until IS NULL THEN 'permanent'
+                       ELSE IF(blocked_until > NOW(), 'active', 'expired') END AS block_status
+        FROM ip_blocks ORDER BY updated_at DESC LIMIT 100
+    ")->fetchAll();
 
-// ── Top failing IPs (last 24h) ────────────────────────────────────────────────
-$topFails = $pdo->query("
-    SELECT ip_address, COUNT(*) as attempts,
-           MAX(created_at) as last_attempt,
-           SUM(success) as successes
-    FROM login_logs
-    WHERE created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
-    GROUP BY ip_address
-    ORDER BY attempts DESC
-    LIMIT 20
-")->fetchAll();
+    $topFails = $pdo->query("
+        SELECT ip_address, COUNT(*) as attempts,
+               MAX(created_at) as last_attempt, SUM(success) as successes
+        FROM login_logs
+        WHERE created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        GROUP BY ip_address ORDER BY attempts DESC LIMIT 20
+    ")->fetchAll();
 
-// ── Recent log ────────────────────────────────────────────────────────────────
-$recentLogs = $pdo->query("
-    SELECT l.*, CASE WHEN b.ip_address IS NOT NULL THEN 1 ELSE 0 END as is_blocked
-    FROM login_logs l
-    LEFT JOIN ip_blocks b ON l.ip_address = b.ip_address AND (b.blocked_until IS NULL OR b.blocked_until > NOW())
-    ORDER BY l.created_at DESC
-    LIMIT 100
-")->fetchAll();
+    $recentLogs = $pdo->query("
+        SELECT l.*, CASE WHEN b.ip_address IS NOT NULL THEN 1 ELSE 0 END as is_blocked
+        FROM login_logs l
+        LEFT JOIN ip_blocks b ON l.ip_address = b.ip_address
+            AND (b.blocked_until IS NULL OR b.blocked_until > NOW())
+        ORDER BY l.created_at DESC LIMIT 100
+    ")->fetchAll();
+} catch (Exception $e) {
+    $dbError = 'ไม่สามารถโหลดข้อมูลได้: ตารางยังไม่พร้อม กรุณารอสักครู่แล้วรีเฟรช (' . $e->getMessage() . ')';
+    error_log('ip_manager.php DB error: ' . $e->getMessage());
+}
 
 $base_url = '../';
 require_once __DIR__ . '/../includes/header.php';
@@ -91,6 +97,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 <?php if($success):?><div class="alert alert-success"><i class="ph-bold ph-check-circle"></i> <?php echo htmlspecialchars($success);?></div><?php endif;?>
 <?php if($error):?><div class="alert alert-danger"><i class="ph-bold ph-warning-circle"></i> <?php echo htmlspecialchars($error);?></div><?php endif;?>
+<?php if($dbError):?><div class="alert alert-danger"><i class="ph-bold ph-warning-circle"></i> <?php echo htmlspecialchars($dbError);?></div><?php endif;?>
 
 <!-- Stats -->
 <div class="stats-grid" style="margin-bottom:1.5rem;">

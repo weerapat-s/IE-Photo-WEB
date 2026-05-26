@@ -11,78 +11,65 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 visitor_ensure_table($pdo);
 
 // ── Stats ────────────────────────────────────────────────────────────────────
-$now      = date('Y-m-d H:i:s');
-$today    = date('Y-m-d');
+$now   = date('Y-m-d H:i:s');
+$today = date('Y-m-d');
+$dbError = false;
 
-$onlineNow    = (int) $pdo->query("SELECT COUNT(DISTINCT ip_address) FROM visitor_logs WHERE created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)")->fetchColumn();
-$uniqueToday  = (int) $pdo->query("SELECT COUNT(DISTINCT ip_address) FROM visitor_logs WHERE DATE(created_at) = CURDATE()")->fetchColumn();
-$totalToday   = (int) $pdo->query("SELECT COUNT(*) FROM visitor_logs WHERE DATE(created_at) = CURDATE()")->fetchColumn();
-$memberToday  = (int) $pdo->query("SELECT COUNT(DISTINCT ip_address) FROM visitor_logs WHERE DATE(created_at) = CURDATE() AND user_id IS NOT NULL")->fetchColumn();
-$guestToday   = $uniqueToday - $memberToday;
-
-// ── Online now (last 5 min) ───────────────────────────────────────────────────
-$onlineList = $pdo->query("
-    SELECT ip_address,
-           MAX(user_id) as user_id,
-           MAX(role) as role,
-           MAX(page_url) as last_page,
-           MAX(created_at) as last_seen,
-           COUNT(*) as hits
-    FROM visitor_logs
-    WHERE created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-    GROUP BY ip_address
-    ORDER BY last_seen DESC
-    LIMIT 50
-")->fetchAll();
-
-// ── Top pages today ───────────────────────────────────────────────────────────
-$topPages = $pdo->query("
-    SELECT page_url,
-           COUNT(*) as hits,
-           COUNT(DISTINCT ip_address) as unique_ips
-    FROM visitor_logs
-    WHERE DATE(created_at) = CURDATE()
-    GROUP BY page_url
-    ORDER BY hits DESC
-    LIMIT 15
-")->fetchAll();
-
-// ── Top IPs today ─────────────────────────────────────────────────────────────
-$topIps = $pdo->query("
-    SELECT ip_address,
-           COUNT(*) as hits,
-           MAX(user_id) as user_id,
-           MAX(role) as role,
-           MAX(created_at) as last_seen
-    FROM visitor_logs
-    WHERE DATE(created_at) = CURDATE()
-    GROUP BY ip_address
-    ORDER BY hits DESC
-    LIMIT 20
-")->fetchAll();
-
-// ── Recent visits (live log) ──────────────────────────────────────────────────
-$recentVisits = $pdo->query("
-    SELECT v.*, u.student_id
-    FROM visitor_logs v
-    LEFT JOIN users u ON v.user_id = u.id
-    ORDER BY v.created_at DESC
-    LIMIT 100
-")->fetchAll();
-
-// ── Hourly chart (today) ──────────────────────────────────────────────────────
-$hourlyData = $pdo->query("
-    SELECT HOUR(created_at) as hr, COUNT(*) as hits, COUNT(DISTINCT ip_address) as uniq
-    FROM visitor_logs
-    WHERE DATE(created_at) = CURDATE()
-    GROUP BY HOUR(created_at)
-    ORDER BY hr
-")->fetchAll();
+$onlineNow = $uniqueToday = $totalToday = $memberToday = $guestToday = 0;
+$onlineList = $topPages = $topIps = $recentVisits = [];
 $hourlyHits = array_fill(0, 24, 0);
 $hourlyUniq = array_fill(0, 24, 0);
-foreach ($hourlyData as $h) {
-    $hourlyHits[(int)$h['hr']] = (int)$h['hits'];
-    $hourlyUniq[(int)$h['hr']] = (int)$h['uniq'];
+
+try {
+    $onlineNow   = (int) $pdo->query("SELECT COUNT(DISTINCT ip_address) FROM visitor_logs WHERE created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)")->fetchColumn();
+    $uniqueToday = (int) $pdo->query("SELECT COUNT(DISTINCT ip_address) FROM visitor_logs WHERE DATE(created_at) = CURDATE()")->fetchColumn();
+    $totalToday  = (int) $pdo->query("SELECT COUNT(*) FROM visitor_logs WHERE DATE(created_at) = CURDATE()")->fetchColumn();
+    $memberToday = (int) $pdo->query("SELECT COUNT(DISTINCT ip_address) FROM visitor_logs WHERE DATE(created_at) = CURDATE() AND user_id IS NOT NULL")->fetchColumn();
+    $guestToday  = $uniqueToday - $memberToday;
+
+    // ── Online now (last 5 min) ───────────────────────────────────────────────
+    $onlineList = $pdo->query("
+        SELECT ip_address, MAX(user_id) as user_id, MAX(role) as role,
+               MAX(page_url) as last_page, MAX(created_at) as last_seen, COUNT(*) as hits
+        FROM visitor_logs WHERE created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+        GROUP BY ip_address ORDER BY last_seen DESC LIMIT 50
+    ")->fetchAll();
+
+    // ── Top pages today ───────────────────────────────────────────────────────
+    $topPages = $pdo->query("
+        SELECT page_url, COUNT(*) as hits, COUNT(DISTINCT ip_address) as unique_ips
+        FROM visitor_logs WHERE DATE(created_at) = CURDATE()
+        GROUP BY page_url ORDER BY hits DESC LIMIT 15
+    ")->fetchAll();
+
+    // ── Top IPs today ─────────────────────────────────────────────────────────
+    $topIps = $pdo->query("
+        SELECT ip_address, COUNT(*) as hits, MAX(user_id) as user_id,
+               MAX(role) as role, MAX(created_at) as last_seen
+        FROM visitor_logs WHERE DATE(created_at) = CURDATE()
+        GROUP BY ip_address ORDER BY hits DESC LIMIT 20
+    ")->fetchAll();
+
+    // ── Recent visits (live log) ──────────────────────────────────────────────
+    $recentVisits = $pdo->query("
+        SELECT v.*, u.student_id FROM visitor_logs v
+        LEFT JOIN users u ON v.user_id = u.id
+        ORDER BY v.created_at DESC LIMIT 100
+    ")->fetchAll();
+
+    // ── Hourly chart (today) ──────────────────────────────────────────────────
+    $hourlyData = $pdo->query("
+        SELECT HOUR(created_at) as hr, COUNT(*) as hits, COUNT(DISTINCT ip_address) as uniq
+        FROM visitor_logs WHERE DATE(created_at) = CURDATE()
+        GROUP BY HOUR(created_at) ORDER BY hr
+    ")->fetchAll();
+    foreach ($hourlyData as $h) {
+        $hourlyHits[(int)$h['hr']] = (int)$h['hits'];
+        $hourlyUniq[(int)$h['hr']] = (int)$h['uniq'];
+    }
+} catch (Exception $e) {
+    $dbError = 'ไม่สามารถโหลดข้อมูลได้: ตารางยังไม่พร้อม กรุณารอสักครู่แล้วรีเฟรช (' . $e->getMessage() . ')';
+    error_log('visitors.php DB error: ' . $e->getMessage());
 }
 
 $base_url = '../';
@@ -93,6 +80,10 @@ require_once __DIR__ . '/../includes/header.php';
     <h2><i class="ph-bold ph-eye"></i> ผู้เข้าชมเว็บไซต์</h2>
     <p>ติดตาม IP และพฤติกรรมผู้เข้าใช้งานแบบ real-time</p>
 </div>
+
+<?php if($dbError):?>
+<div class="alert alert-danger"><i class="ph-bold ph-warning-circle"></i> <?php echo htmlspecialchars($dbError);?></div>
+<?php endif;?>
 
 <!-- Stats -->
 <div class="stats-grid" style="margin-bottom:1.5rem;">
