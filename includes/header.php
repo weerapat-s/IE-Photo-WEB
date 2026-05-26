@@ -4,6 +4,9 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../config/database.php';
 if (!isset($base_url)) $base_url = '../';
 
+// ── Visitor tracking — บันทึกทุก page visit ─────────────────────────────────
+if (isset($pdo)) log_visit($pdo);
+
 // Detect current page for active state
 $currentPage = basename($_SERVER['SCRIPT_NAME'], '.php');
 function isActive($page) {
@@ -27,7 +30,7 @@ function isActive($page) {
     <link rel="stylesheet" href="<?php echo $base_url; ?>assets/css/glassmorphism.css">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
-<body>
+<body<?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin') echo ' class="is-admin"'; ?>>
     <div class="bg-orbs"></div>
 
     <!-- Top Navbar -->
@@ -36,12 +39,15 @@ function isActive($page) {
             <a href="<?php echo $base_url; ?>auth/login.php" class="nav-brand">
                 <i class="ph-bold ph-camera" style="margin-right:3px"></i> IE-PHOTO
             </a>
-            <?php if(isset($_SESSION['user_id'])): ?>
-                <button class="mobile-toggle" id="mobile-toggle-btn" aria-label="Menu">
-                    <i class="ph-bold ph-list"></i>
-                </button>
+            <?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin'): ?>
+            <button class="mobile-toggle" id="mobile-toggle-btn" aria-label="Menu">
+                <i class="ph-bold ph-list"></i>
+            </button>
             <?php endif; ?>
             <div class="nav-links" id="nav-links">
+                <?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin'): ?>
+                <button id="nav-close-btn" onclick="document.getElementById('mobile-toggle-btn').click()" aria-label="ปิดเมนู" style="display:none;position:absolute;top:14px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted);min-width:44px;min-height:44px;align-items:center;justify-content:center;z-index:1076;"><i class="ph-bold ph-x"></i></button>
+                <?php endif; ?>
                 <?php if(isset($_SESSION['user_id'])): ?>
                     <?php if($_SESSION['role'] === 'admin'): ?>
                         <a href="<?php echo $base_url; ?>admin/dashboard.php" class="<?php echo isActive('dashboard');?>"><i class="ph ph-squares-four"></i> แดชบอร์ด</a>
@@ -54,6 +60,8 @@ function isActive($page) {
                         <a href="<?php echo $base_url; ?>member/contact_list.php" class="<?php echo isActive('contact_list');?>"><i class="ph ph-address-book"></i> สมาชิก</a>
                         <a href="<?php echo $base_url; ?>admin/users.php" class="<?php echo isActive('users');?>"><i class="ph ph-users"></i> จัดการสมาชิก</a>
                         <a href="<?php echo $base_url; ?>admin/contact_manage.php" class="<?php echo isActive('contact_manage');?>"><i class="ph ph-users-three"></i> จัดการระบบ</a>
+                        <a href="<?php echo $base_url; ?>admin/visitors.php" class="<?php echo isActive('visitors');?>"><i class="ph ph-eye"></i> ผู้เข้าชม</a>
+                        <a href="<?php echo $base_url; ?>admin/ip_manager.php" class="<?php echo isActive('ip_manager');?>"><i class="ph ph-shield-warning"></i> จัดการ IP</a>
                     <?php else: ?>
                         <a href="<?php echo $base_url; ?>member/feed.php" class="<?php echo isActive('feed');?>"><i class="ph ph-house"></i> ฟีด</a>
                         <a href="<?php echo $base_url; ?>member/borrow_form.php" class="<?php echo isActive('borrow_form');?>"><i class="ph ph-hand-grabbing"></i> ยืมอุปกรณ์</a>
@@ -65,7 +73,7 @@ function isActive($page) {
                     <div class="nav-profile">
                         <a href="<?php echo $base_url; ?>member/my_bookings.php"><i class="ph-bold ph-list-dashes"></i> การจองของฉัน</a>
                         <a href="<?php echo $base_url; ?>member/profile.php"><i class="ph-bold ph-user-circle"></i> โปรไฟล์</a>
-                        <a href="<?php echo $base_url; ?>auth/logout.php" class="btn btn-outline btn-sm" style="width:100%;justify-content:center;">ออกจากระบบ</a>
+                        <a href="<?php echo $base_url; ?>auth/logout.php" class="btn btn-outline btn-sm">ออกจากระบบ</a>
                     </div>
                 <?php else: ?>
                     <a href="<?php echo $base_url; ?>guest/studio_booking.php"><i class="ph ph-calendar-plus"></i> จองสตูดิโอ</a>
@@ -76,80 +84,47 @@ function isActive($page) {
         </div>
     </nav>
 
-    <!-- Nav Overlay (Mobile) -->
+    <!-- Nav Overlay (Admin mobile only) -->
+    <?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin'): ?>
     <div class="nav-overlay" id="nav-overlay"></div>
+    <?php endif; ?>
 
     <!-- Main Content -->
     <main class="main-content">
 
+    <?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin'): ?>
     <script>
-    (function() {
-        function initNav() {
-            var toggleBtn = document.getElementById('mobile-toggle-btn');
-            var navLinks  = document.getElementById('nav-links');
-            var overlay   = document.getElementById('nav-overlay');
-            if (!toggleBtn || !navLinks) return;
-
-            /* ปิดเมนู */
-            function closeMenu() {
-                navLinks.classList.remove('active');
-                if (overlay) overlay.classList.remove('active');
-                var icon = toggleBtn.querySelector('i');
-                if (icon) { icon.classList.remove('ph-x'); icon.classList.add('ph-list'); }
-                document.body.style.overflow = '';
-            }
-
-            /* เปิด/ปิดเมนู */
-            function onToggle(e) {
-                e.stopPropagation();
-                var isOpen = navLinks.classList.toggle('active');
-                if (overlay) overlay.classList.toggle('active', isOpen);
-                var icon = toggleBtn.querySelector('i');
-                if (icon) {
-                    icon.classList.toggle('ph-list', !isOpen);
-                    icon.classList.toggle('ph-x', isOpen);
-                }
-                /* ล็อก scroll body เมื่อเมนูเปิด (ป้องกัน scroll ผ่านใต้เมนู) */
-                document.body.style.overflow = isOpen ? 'hidden' : '';
-            }
-
-            /* ใช้ทั้ง click และ touchend เพื่อรองรับทุก device */
-            toggleBtn.addEventListener('click', onToggle);
-
-            /* ปิดเมื่อกด overlay */
-            if (overlay) {
-                overlay.addEventListener('click', closeMenu);
-                overlay.addEventListener('touchend', function(e) {
-                    e.preventDefault();
-                    closeMenu();
-                });
-            }
-
-            /* กดลิงก์ในเมนู → ปิดเมนูแล้วค่อย navigate */
-            navLinks.querySelectorAll('a').forEach(function(a) {
-                a.addEventListener('click', function(e) {
-                    /* หยุด event ไม่ให้ bubble ขึ้นไปโดน overlay */
-                    e.stopPropagation();
-                    closeMenu();
-                    /* ถ้า href ปกติ ให้ browser navigate ตามเดิม */
-                });
-            });
-
-            /* ปิดเมื่อกด Escape */
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') closeMenu();
-            });
-
-            /* ปิดเมื่อหมุนจอ */
-            window.addEventListener('orientationchange', function() {
-                setTimeout(closeMenu, 300);
-            });
+    (function(){
+        var btn   = document.getElementById('mobile-toggle-btn');
+        var nav   = document.getElementById('nav-links');
+        var ov    = document.getElementById('nav-overlay');
+        var closeX= document.getElementById('nav-close-btn');
+        if(!btn||!nav) return;
+        function close(){
+            nav.classList.remove('active');
+            if(ov) ov.classList.remove('active');
+            if(closeX) closeX.style.display='none';
+            var ic=btn.querySelector('i');
+            if(ic){ic.classList.remove('ph-x');ic.classList.add('ph-list');}
+            document.documentElement.classList.remove('menu-open');
         }
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initNav);
-        } else {
-            initNav();
+        btn.addEventListener('click',function(e){
+            e.stopPropagation();
+            var open=nav.classList.toggle('active');
+            if(ov) ov.classList.toggle('active',open);
+            /* ปุ่ม ✕ ในตัว panel */
+            if(closeX) closeX.style.display=open?'flex':'none';
+            var ic=btn.querySelector('i');
+            if(ic){ic.classList.toggle('ph-list',!open);ic.classList.toggle('ph-x',open);}
+            document.documentElement.classList.toggle('menu-open',open);
+        });
+        if(ov){
+            ov.addEventListener('click',close);
+            ov.addEventListener('touchend',function(e){e.preventDefault();close();});
         }
+        nav.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){close();});});
+        document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});
+        window.addEventListener('orientationchange',function(){setTimeout(close,300);});
     })();
     </script>
+    <?php endif; ?>

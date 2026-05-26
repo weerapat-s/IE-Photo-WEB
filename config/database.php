@@ -187,11 +187,51 @@ if (!function_exists('get_client_ip')) {
         $pdo->prepare("DELETE FROM ip_blocks WHERE ip_address = ?")->execute([$ip]);
     }
 
+    /** สร้างตาราง visitor_logs ถ้ายังไม่มี */
+    function visitor_ensure_table(PDO $pdo): void {
+        static $done = false;
+        if ($done) return;
+        $done = true;
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS visitor_logs (
+                id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+                ip_address  VARCHAR(45)  NOT NULL,
+                user_id     INT          DEFAULT NULL,
+                role        VARCHAR(20)  DEFAULT NULL,
+                page_url    VARCHAR(500) NOT NULL,
+                http_method VARCHAR(10)  DEFAULT 'GET',
+                user_agent  VARCHAR(500) DEFAULT NULL,
+                referrer    VARCHAR(500) DEFAULT NULL,
+                created_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_ip      (ip_address),
+                INDEX idx_created (created_at),
+                INDEX idx_user    (user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (Exception $e) { error_log('visitor_ensure_table: ' . $e->getMessage()); }
+    }
+
+    /** บันทึก page visit — เรียกจาก header.php ทุกหน้า */
+    function log_visit(PDO $pdo): void {
+        try {
+            visitor_ensure_table($pdo);
+            $ip     = get_client_ip();
+            $uid    = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+            $role   = $_SESSION['role'] ?? null;
+            $url    = substr(($_SERVER['REQUEST_URI'] ?? '/'), 0, 500);
+            $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            $ua     = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500);
+            $ref    = substr($_SERVER['HTTP_REFERER'] ?? '', 0, 500);
+            $pdo->prepare("INSERT INTO visitor_logs (ip_address, user_id, role, page_url, http_method, user_agent, referrer) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                ->execute([$ip, $uid, $role, $url, $method, $ua, $ref]);
+        } catch (Exception $e) { /* non-critical — never block page load */ }
+    }
+
     /** ลบ log เก่าเกิน 7 วัน + expired auto-blocks */
     function ip_cleanup(PDO $pdo): void {
         try {
             $pdo->exec("DELETE FROM login_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 7 DAY)");
             $pdo->exec("DELETE FROM ip_blocks WHERE blocked_by='auto' AND blocked_until IS NOT NULL AND blocked_until < NOW()");
+            $pdo->exec("DELETE FROM visitor_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)");
         } catch (Exception $e) { }
     }
 }
