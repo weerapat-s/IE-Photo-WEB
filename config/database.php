@@ -6,6 +6,22 @@ ini_set('display_errors', $isLocalhost ? 1 : 0);
 ini_set('display_startup_errors', $isLocalhost ? 1 : 0);
 error_reporting(E_ALL);
 
+// ─── Session hardening (PHP-FPM / mod_php compat) ───────────────────────────
+// These MUST be set before session_start().  We use ini_set() here because
+// CleverCloud runs PHP-FPM where php_value in .htaccess is NOT supported.
+if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.cookie_httponly',  '1');
+    ini_set('session.cookie_samesite',  'Strict');
+    ini_set('session.use_strict_mode',  '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_trans_sid',    '0');
+    // Enable secure flag only on HTTPS (production)
+    if ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')) {
+        ini_set('session.cookie_secure', '1');
+    }
+}
+
 // ─── CSRF Protection ────────────────────────────────────────────────────────
 if (!function_exists('csrf_token')) {
     /** คืนค่า CSRF token สำหรับ session ปัจจุบัน (สร้างใหม่ถ้ายังไม่มี) */

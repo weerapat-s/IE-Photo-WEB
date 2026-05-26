@@ -1,17 +1,7 @@
 # IE-Photo-WEB — Apache security config
-
-# ── Session cookie hardening ────────────────────────────────────────────────
-php_value session.cookie_httponly  1
-php_value session.cookie_samesite  Strict
-# เปิด secure flag เฉพาะเมื่อใช้ HTTPS (production)
-# php_value session.cookie_secure   1
-
-# ── Session fixation: ใช้ strict mode ────────────────────────────────────────
-php_value session.use_strict_mode  1
-php_value session.use_only_cookies 1
-
-# ── Prevent session ID in URL ─────────────────────────────────────────────────
-php_value session.use_trans_sid    0
+# NOTE: php_value directives are NOT used here because CleverCloud (and most
+# modern hosts) run PHP-FPM rather than mod_php.  Session hardening settings
+# are applied directly in PHP code (config/database.php) instead.
 
 # ── Security headers ─────────────────────────────────────────────────────────
 <IfModule mod_headers.c>
