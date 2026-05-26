@@ -83,29 +83,83 @@ define('IP_WINDOW_SECS',  900);  // 15 นาที
 define('IP_LOCKOUT_SECS', 1800); // บล็อก 30 นาที
 
 if (!function_exists('get_client_ip')) {
-    /** คืน IP จริงของ client — รองรับ Cloudflare, nginx reverse proxy */
+    /**
+     * ตรวจว่า $ip อยู่ใน CIDR range หรือเปล่า (เช่น 10.0.0.0/8)
+     * ใช้สำหรับกรอง CleverCloud's CC_REVERSE_PROXY_IPS ออกจาก X-Forwarded-For
+     */
+    function ip_in_cidr(string $ip, string $cidr): bool {
+        if (!str_contains($cidr, '/')) return $ip === $cidr;
+        [$subnet, $bits] = explode('/', $cidr, 2);
+        if (!filter_var($subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) return false;
+        if (!filter_var($ip,     FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) return false;
+        $mask = ~((1 << (32 - (int)$bits)) - 1);
+        return (ip2long($ip) & $mask) === (ip2long($subnet) & $mask);
+    }
+
+    /**
+     * คืน IP จริงของ client แบบแม่นยำ (Rightmost-Untrusted approach)
+     *
+     * วิธีการ:
+     *   X-Forwarded-For: <client>, <proxy1>, <clevercloud-proxy>
+     *   เดินจากขวาไปซ้าย — ข้าม IP ที่เป็น trusted proxy (CC_REVERSE_PROXY_IPS)
+     *   หรือ private/reserved range จนเจอ IP สาธารณะที่ไม่ใช่ proxy = IP จริง
+     *
+     * ทำไมถึงแม่นยำกว่า:
+     *   - แบบเก่า (leftmost) ถูกปลอมได้ด้วยการส่ง X-Forwarded-For: fake, real
+     *   - แบบใหม่ (rightmost-untrusted) ปลอมไม่ได้ เพราะ proxy append จากขวา
+     */
     function get_client_ip(): string {
-        // CF-Connecting-IP: ตั้งโดย Cloudflare เท่านั้น — ปลอดภัยที่สุด
+        // ── 1. สร้างรายการ trusted proxy CIDR จาก CC_REVERSE_PROXY_IPS ────────
+        //    CleverCloud inject env var นี้ให้อัตโนมัติ
+        //    เช่น "185.42.117.0/24,10.0.0.0/8"
+        $trustedCIDRs = [];
+        if (($env = getenv('CC_REVERSE_PROXY_IPS')) !== false && $env !== '') {
+            foreach (explode(',', $env) as $entry) {
+                $entry = trim($entry);
+                if ($entry !== '') $trustedCIDRs[] = $entry;
+            }
+        }
+
+        // ── 2. ฟังก์ชันตรวจว่า IP นี้เป็น proxy/internal หรือเปล่า ──────────
+        //    เงื่อนไข: private/reserved range เสมอ (10.x, 172.16-31.x, 192.168.x)
+        //             หรือ ตรงกับ CC_REVERSE_PROXY_IPS ที่ CleverCloud กำหนด
+        $isProxy = static function (string $ip) use ($trustedCIDRs): bool {
+            // private/loopback/reserved → เป็น internal network เสมอ
+            if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                return true;
+            }
+            // Public IP ที่ CleverCloud ระบุว่าเป็น proxy ของพวกเขา
+            foreach ($trustedCIDRs as $cidr) {
+                if (ip_in_cidr($ip, $cidr)) return true;
+            }
+            return false;
+        };
+
+        // ── 3. CF-Connecting-IP (เฉพาะเมื่อ REMOTE_ADDR เป็น proxy จริง) ──────
+        //    ป้องกันการปลอม: ใช้ CF header ก็ต่อเมื่อ connecting peer เป็น proxy
         if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-            $ip = trim($_SERVER['HTTP_CF_CONNECTING_IP']);
-            if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
+            $ra    = $_SERVER['REMOTE_ADDR'] ?? '';
+            $cfIp  = trim($_SERVER['HTTP_CF_CONNECTING_IP']);
+            if ($isProxy($ra) && filter_var($cfIp, FILTER_VALIDATE_IP)) {
+                return $cfIp;
+            }
         }
-        // X-Forwarded-For: เอา IP แรกที่เป็น public IP
+
+        // ── 4. X-Forwarded-For: rightmost-untrusted ───────────────────────────
+        //    X-Forwarded-For: <client>, <proxy1>, <clevercloud-proxy>
+        //    เดินจากขวา→ซ้าย ข้าม proxy/private IPs จนเจอ IP จริงของผู้ใช้
+        //    วิธีนี้ปลอมไม่ได้ เพราะ proxy append จากขวาเสมอ
         if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            foreach (explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']) as $ip) {
-                $ip = trim($ip);
-                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                    return $ip;
-                }
+            $chain = array_reverse(array_map('trim', explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])));
+            foreach ($chain as $ip) {
+                if (!filter_var($ip, FILTER_VALIDATE_IP)) continue; // รูปแบบผิด → ข้าม
+                if ($isProxy($ip)) continue;                         // proxy/private → ข้าม
+                return $ip;                                          // ✓ IP จริงของผู้ใช้
             }
         }
-        // X-Real-IP: nginx proxy
-        if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
-            $ip = trim($_SERVER['HTTP_X_REAL_IP']);
-            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                return $ip;
-            }
-        }
+
+        // ── 5. Fallback: REMOTE_ADDR ───────────────────────────────────────────
+        //    ใช้เมื่อไม่มี proxy headers (localhost / direct connection)
         return $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
     }
 
