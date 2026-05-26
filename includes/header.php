@@ -40,13 +40,20 @@ function isActive($page) {
                 <i class="ph-bold ph-camera" style="margin-right:3px"></i> IE-PHOTO
             </a>
             <?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin'): ?>
-            <button class="mobile-toggle" id="mobile-toggle-btn" aria-label="Menu">
+            <button class="mobile-toggle" id="mobile-toggle-btn" aria-label="Menu" style="margin-left:auto;">
                 <i class="ph-bold ph-list"></i>
             </button>
             <?php endif; ?>
             <div class="nav-links" id="nav-links">
                 <?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin'): ?>
-                <button id="nav-close-btn" onclick="document.getElementById('mobile-toggle-btn').click()" aria-label="ปิดเมนู" style="display:none;position:absolute;top:14px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted);min-width:44px;min-height:44px;align-items:center;justify-content:center;z-index:1076;"><i class="ph-bold ph-x"></i></button>
+                <!-- ปุ่ม ✕ ปิด panel — ติดมุมขวาบนของ slide panel -->
+                <button id="nav-close-btn" aria-label="ปิดเมนู"
+                    style="position:absolute;top:14px;right:14px;background:none;border:none;
+                           font-size:1.4rem;cursor:pointer;color:var(--text-muted);
+                           min-width:44px;min-height:44px;display:flex;
+                           align-items:center;justify-content:center;z-index:1076;">
+                    <i class="ph-bold ph-x"></i>
+                </button>
                 <?php endif; ?>
                 <?php if(isset($_SESSION['user_id'])): ?>
                     <?php if($_SESSION['role'] === 'admin'): ?>
@@ -95,36 +102,51 @@ function isActive($page) {
     <?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin'): ?>
     <script>
     (function(){
-        var btn   = document.getElementById('mobile-toggle-btn');
-        var nav   = document.getElementById('nav-links');
-        var ov    = document.getElementById('nav-overlay');
-        var closeX= document.getElementById('nav-close-btn');
+        var btn    = document.getElementById('mobile-toggle-btn');
+        var nav    = document.getElementById('nav-links');
+        var ov     = document.getElementById('nav-overlay');
+        var closeX = document.getElementById('nav-close-btn');
         if(!btn||!nav) return;
-        function close(){
+
+        function closeMenu(){
             nav.classList.remove('active');
             if(ov) ov.classList.remove('active');
-            if(closeX) closeX.style.display='none';
             var ic=btn.querySelector('i');
             if(ic){ic.classList.remove('ph-x');ic.classList.add('ph-list');}
             document.documentElement.classList.remove('menu-open');
         }
+        function openMenu(){
+            nav.classList.add('active');
+            if(ov) ov.classList.add('active');
+            var ic=btn.querySelector('i');
+            if(ic){ic.classList.remove('ph-list');ic.classList.add('ph-x');}
+            document.documentElement.classList.add('menu-open');
+        }
+
         btn.addEventListener('click',function(e){
             e.stopPropagation();
-            var open=nav.classList.toggle('active');
-            if(ov) ov.classList.toggle('active',open);
-            /* ปุ่ม ✕ ในตัว panel */
-            if(closeX) closeX.style.display=open?'flex':'none';
-            var ic=btn.querySelector('i');
-            if(ic){ic.classList.toggle('ph-list',!open);ic.classList.toggle('ph-x',open);}
-            document.documentElement.classList.toggle('menu-open',open);
+            nav.classList.contains('active') ? closeMenu() : openMenu();
         });
+
+        /* ปุ่ม ✕ ใน panel */
+        if(closeX) closeX.addEventListener('click', closeMenu);
+
+        /* คลิก overlay ปิด */
         if(ov){
-            ov.addEventListener('click',close);
-            ov.addEventListener('touchend',function(e){e.preventDefault();close();});
+            ov.addEventListener('click', closeMenu);
+            ov.addEventListener('touchend',function(e){e.preventDefault();closeMenu();});
         }
-        nav.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){close();});});
-        document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});
-        window.addEventListener('orientationchange',function(){setTimeout(close,300);});
+
+        /* คลิก link ใน panel ปิด */
+        nav.querySelectorAll('a').forEach(function(a){
+            a.addEventListener('click', closeMenu);
+        });
+
+        /* Escape key */
+        document.addEventListener('keydown',function(e){if(e.key==='Escape')closeMenu();});
+
+        /* หมุนจอ */
+        window.addEventListener('orientationchange',function(){setTimeout(closeMenu,300);});
     })();
     </script>
     <?php endif; ?>

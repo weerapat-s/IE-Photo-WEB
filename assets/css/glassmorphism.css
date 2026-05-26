@@ -1387,3 +1387,104 @@ body:not(:has(.bottom-nav[style*="block"])){
 @media (min-width:421px) and (max-width:600px){
     .form-row{ flex-direction:column !important }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Admin: hamburger slide menu — ทุก screen size (ไม่แค่ mobile)
+   ยกเว้น IE-PHOTO brand เท่านั้นที่อยู่ใน navbar เสมอ
+   ═══════════════════════════════════════════════════════════════ */
+
+/* แสดง hamburger button เสมอสำหรับ admin */
+.is-admin .mobile-toggle{
+    display:flex !important;
+    align-items:center;justify-content:center;
+    z-index:1075;
+}
+
+/* navbar admin: brand ซ้าย + hamburger ขวา เท่านั้น */
+.is-admin .glass-navbar{ z-index:1070 }
+.is-admin .nav-container{ justify-content:space-between }
+
+/* nav-links = slide panel เสมอ (ทั้ง desktop และ mobile) */
+.is-admin .nav-links{
+    position:fixed !important;
+    top:0;right:0;
+    width:280px;max-width:85vw;
+    height:100vh;height:100dvh;
+    background:#fff;
+    flex-direction:column !important;
+    justify-content:flex-start;align-items:stretch;
+    transform:translateX(100%);
+    transition:transform .35s cubic-bezier(.4,0,.2,1);
+    box-shadow:-8px 0 30px rgba(0,0,0,.15);
+    z-index:1060;gap:0;
+    padding:calc(var(--safe-top,0px) + 62px) 0 2rem;
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;-ms-overflow-style:none;
+    isolation:isolate;will-change:transform;
+    -webkit-backface-visibility:hidden;backface-visibility:hidden;
+    pointer-events:auto;
+    flex:initial !important;
+    width:280px !important;max-width:85vw !important;
+    height:100vh !important;height:100dvh !important;
+    border-radius:0 !important;overflow-x:hidden;
+}
+.is-admin .nav-links::-webkit-scrollbar{display:none}
+.is-admin .nav-links.active{transform:translateX(0)}
+
+/* link items ใน slide panel — icon + text แนว row */
+.is-admin .nav-links > a{
+    display:flex !important;align-items:center;gap:10px;
+    font-size:.9rem;font-weight:500;
+    padding:.8rem 1.3rem;width:100%;
+    border-bottom:1px solid rgba(0,0,0,.05);
+    border-radius:0 !important;white-space:nowrap;
+    min-height:46px;color:var(--text);
+    background:transparent;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+    transition:background .15s,color .15s;
+}
+.is-admin .nav-links > a:hover,
+.is-admin .nav-links > a.active{
+    background:rgba(242,83,28,.06);
+    color:var(--primary);
+}
+.is-admin .nav-links > a i{
+    display:inline !important;
+    width:22px;text-align:center;flex-shrink:0;
+    font-size:1.05rem;color:var(--text-muted);
+}
+.is-admin .nav-links > a:hover i,
+.is-admin .nav-links > a.active i{color:var(--primary)}
+
+/* profile section ที่ด้านล่างของ panel */
+.is-admin .nav-profile{
+    flex-direction:column !important;
+    border-left:none !important;border-top:1px solid var(--border) !important;
+    padding:1rem 1.3rem 0 !important;margin:auto 0 0 !important;
+    width:100% !important;gap:.5rem;
+}
+.is-admin .nav-profile a{
+    width:100%;text-align:center;
+    padding:.65rem !important;min-height:44px;font-size:.85rem;
+    display:flex !important;align-items:center;justify-content:center;gap:6px;
+}
+.is-admin .nav-profile a i{display:inline !important}
+.is-admin .nav-profile .btn-sm{
+    width:100%;justify-content:center;
+    font-size:.85rem;padding:.6rem !important;
+}
+
+/* overlay — ใช้ทุก screen size */
+.is-admin .nav-overlay{
+    display:block !important;
+    position:fixed;top:0;left:0;right:0;bottom:0;
+    z-index:900;
+    background:rgba(0,0,0,.45);
+    opacity:0;visibility:hidden;
+    transition:opacity .3s,visibility .3s;
+    pointer-events:none;
+}
+.is-admin .nav-overlay.active{
+    opacity:1;visibility:visible;pointer-events:auto;
+}
