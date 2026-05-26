@@ -19,9 +19,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // ── CSRF check ──────────────────────────────────────────────────────────
     if (!csrf_verify()) {
         $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
-    // ── Rate limiting ────────────────────────────────────────────────────────
+    // ── Session rate limiting ────────────────────────────────────────────────
     } elseif (login_locked()) {
         $error = 'พยายามเข้าสู่ระบบมากเกินไป กรุณารอ ' . login_wait_secs() . ' วินาที แล้วลองใหม่';
+    // ── IP block check ───────────────────────────────────────────────────────
+    } elseif (ip_is_blocked($pdo)) {
+        $until = ip_blocked_until($pdo);
+        $error = $until
+            ? 'IP ของคุณถูกบล็อกชั่วคราว กรุณารอจนถึง ' . date('H:i น.', strtotime($until)) . ' แล้วลองใหม่'
+            : 'IP ของคุณถูกบล็อก กรุณาติดต่อผู้ดูแลระบบ';
     } else {
         $identifier = trim($_POST['identifier'] ?? '');
         $password   = $_POST['password'] ?? '';
@@ -41,9 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = 'unverified';
                     $unverifiedEmail = $user['email'];
                 } else {
-                    login_reset(); // FIX: reset เฉพาะเมื่อ login สำเร็จจริง (หลัง email_verified ผ่าน)
+                    login_reset();
+                    ip_record_success($pdo, $identifier); // ── log success
                     session_regenerate_id(true);
-                    unset($_SESSION['csrf_token']); // FIX: rotate CSRF token หลัง session_regenerate_id
+                    unset($_SESSION['csrf_token']); // rotate CSRF token
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['role']    = $user['role'];
                     $_SESSION['email']   = $user['email'];
@@ -58,8 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else {
                 login_record_fail();
-                // หน่วงเวลาเล็กน้อยเพื่อป้องกัน timing attack และ brute force
-                usleep(300000); // 0.3 วินาที
+                ip_record_fail($pdo, $identifier); // ── log + maybe auto-block
+                usleep(300000); // 0.3 วินาที — ป้องกัน timing attack
                 $error = 'อีเมล/รหัสนักศึกษา หรือ รหัสผ่านไม่ถูกต้อง';
             }
         }
