@@ -231,14 +231,17 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
 
             <!-- Date/Time -->
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="start_datetime"><i class="ph-bold ph-calendar"></i> วันเวลาที่ยืม</label>
-                    <input type="datetime-local" id="start_datetime" name="start_datetime" class="form-control" required min="<?php echo date('Y-m-d\TH:i'); ?>">
-                </div>
-                <div class="form-group">
-                    <label for="end_datetime"><i class="ph-bold ph-calendar-check"></i> วันเวลาที่คืน</label>
-                    <input type="datetime-local" id="end_datetime" name="end_datetime" class="form-control" required min="<?php echo date('Y-m-d\TH:i'); ?>">
+            <div class="form-group">
+                <label for="start_datetime"><i class="ph-bold ph-calendar"></i> วันเวลาที่ยืม</label>
+                <input type="datetime-local" id="start_datetime" name="start_datetime" class="form-control" required
+                       min="<?php echo date('Y-m-d\TH:i'); ?>">
+            </div>
+            <div class="form-group">
+                <label for="end_datetime"><i class="ph-bold ph-calendar-check"></i> วันเวลาที่คืน</label>
+                <input type="datetime-local" id="end_datetime" name="end_datetime" class="form-control" required
+                       min="<?php echo date('Y-m-d\TH:i'); ?>">
+                <div id="dt-error" style="display:none;color:var(--danger);font-size:.82rem;margin-top:.3rem;">
+                    <i class="ph ph-warning-circle"></i> เวลาคืนต้องอยู่หลังเวลายืม
                 </div>
             </div>
 
@@ -280,6 +283,34 @@ document.getElementById('form_image').addEventListener('change', function() {
         d.style.display = 'inline-block';
     }
 });
+
+// Datetime validation — กันเลือก end ก่อน start
+(function(){
+    var startEl = document.getElementById('start_datetime');
+    var endEl   = document.getElementById('end_datetime');
+    var errEl   = document.getElementById('dt-error');
+    var btnEl   = document.querySelector('button[type="submit"]');
+
+    function nowLocal(){
+        var d = new Date(); d.setSeconds(0,0);
+        return d.toISOString().slice(0,16);
+    }
+    startEl.min = nowLocal();
+
+    function validate(){
+        var s = startEl.value, e = endEl.value;
+        var now = nowLocal();
+        if(s && s < now){ startEl.value = now; s = now; }
+        if(s) endEl.min = s;
+        var invalid = s && e && e <= s;
+        errEl.style.display = invalid ? 'flex' : 'none';
+        endEl.classList.toggle('is-invalid', !!invalid);
+        if(btnEl) btnEl.disabled = !!invalid;
+    }
+    startEl.addEventListener('change', validate);
+    endEl.addEventListener('change', validate);
+    setInterval(function(){ startEl.min = nowLocal(); }, 60000);
+})();
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -16,8 +16,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_verify()) {
         $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
     }
-    $phone = trim($_POST['phone'] ?? '');
+    $phone      = trim($_POST['phone'] ?? '');
+    $first_name = trim($_POST['first_name'] ?? '');
+    $last_name  = trim($_POST['last_name'] ?? '');
     $profile_image = $_POST['current_image'] ?? 'default.png';
+
+    if (mb_strlen($first_name) > 100) { $error = 'ชื่อจริงยาวเกินไป'; }
+    if (mb_strlen($last_name) > 100)  { $error = 'นามสกุลยาวเกินไป'; }
 
     if (!$error && isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] === UPLOAD_ERR_OK) {
         if ($_FILES['profile_image']['size'] > 4 * 1024 * 1024) {
@@ -40,15 +45,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$error) {
-        $stmt = $pdo->prepare("UPDATE users SET phone = ?, profile_image = ?, profile_completed = 1 WHERE id = ?");
-        if ($stmt->execute([$phone, $profile_image, $user_id])) {
+        $stmt = $pdo->prepare("UPDATE users SET phone = ?, first_name = ?, last_name = ?, profile_image = ?, profile_completed = 1 WHERE id = ?");
+        if ($stmt->execute([$phone, $first_name, $last_name, $profile_image, $user_id])) {
             $success = 'อัปเดตโปรไฟล์สำเร็จแล้ว!';
             if (isset($_GET['first_login'])) { header("Location: feed.php?welcome=1"); exit; }
         } else { $error = 'เกิดข้อผิดพลาด'; }
     }
 }
 
-$stmt = $pdo->prepare("SELECT student_id, email, phone, profile_image, profile_completed, created_at FROM users WHERE id = ?");
+$stmt = $pdo->prepare("SELECT student_id, email, phone, first_name, last_name, profile_image, profile_completed, created_at FROM users WHERE id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch();
 
@@ -96,6 +101,25 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php echo htmlspecialchars($user['student_id'] . ' | ' . $user['email']); ?>
                 </div>
             </div>
+
+            <!-- ชื่อ-นามสกุล (แก้ไขได้) -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="first_name"><i class="ph ph-user"></i> ชื่อจริง</label>
+                    <input type="text" id="first_name" name="first_name" class="form-control"
+                           placeholder="สมชาย"
+                           value="<?php echo htmlspecialchars($user['first_name'] ?? ''); ?>"
+                           maxlength="100" autocomplete="given-name">
+                </div>
+                <div class="form-group">
+                    <label for="last_name">นามสกุล</label>
+                    <input type="text" id="last_name" name="last_name" class="form-control"
+                           placeholder="ใจดี"
+                           value="<?php echo htmlspecialchars($user['last_name'] ?? ''); ?>"
+                           maxlength="100" autocomplete="family-name">
+                </div>
+            </div>
+
             <div class="form-group">
                 <label for="phone"><i class="ph ph-phone"></i> เบอร์โทรศัพท์ติดต่อ</label>
                 <input type="text" id="phone" name="phone" class="form-control" value="<?php echo htmlspecialchars($user['phone'] ?? '');?>" placeholder="0XXXXXXXXX">

@@ -12,15 +12,28 @@ $user_id = $_SESSION['user_id'];
 $success = '';
 $error = '';
 
-// Check if tasks table exists
-try { $pdo->query("SELECT 1 FROM tasks LIMIT 1"); } catch (Exception $e) {
+// Check if tasks table exists — and ensure utf8mb4 charset (ป้องกัน Thai ???)
+$tasksExist = true;
+try { $pdo->query("SELECT 1 FROM tasks LIMIT 1"); } catch (Exception $e) { $tasksExist = false; }
+if (!$tasksExist) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS tasks (
         id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255) NOT NULL, description TEXT,
         assigned_by INT NOT NULL, assigned_to INT NOT NULL, booking_id INT DEFAULT NULL,
         status ENUM('pending','in_progress','completed','cancelled') NOT NULL DEFAULT 'pending',
         due_date DATETIME DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} else {
+    try {
+        $cs = $pdo->query("SELECT CCSA.character_set_name
+            FROM information_schema.TABLES T
+            JOIN information_schema.COLLATION_CHARACTER_SET_APPLICABILITY CCSA
+                ON CCSA.collation_name = T.TABLE_COLLATION
+            WHERE T.TABLE_SCHEMA = DATABASE() AND T.TABLE_NAME = 'tasks'")->fetchColumn();
+        if ($cs && strtolower($cs) !== 'utf8mb4') {
+            $pdo->exec("ALTER TABLE tasks CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        }
+    } catch (Exception $e) { }
 }
 
 // Handle status update

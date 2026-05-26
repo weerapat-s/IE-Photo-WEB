@@ -39,11 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Handle return image upload — ตรวจสอบทั้ง extension และ MIME type จริง
         $return_image = null;
-        if ($action === 'return' && isset($_FILES['return_image']) && $_FILES['return_image']['error'] === UPLOAD_ERR_OK) {
+        // #7 ต้องแนบรูปทุกครั้งเมื่อคืนอุปกรณ์
+        if ($action === 'return' && (empty($_FILES['return_image']['tmp_name']) || $_FILES['return_image']['error'] !== UPLOAD_ERR_OK)) {
+            $error = 'กรุณาแนบรูปอุปกรณ์ก่อนยืนยันการคืน';
+        } elseif ($action === 'return' && isset($_FILES['return_image']) && $_FILES['return_image']['error'] === UPLOAD_ERR_OK) {
             /* BUG-004: ตรวจขนาดไฟล์ (สูงสุด 8 MB) */
             if ($_FILES['return_image']['size'] > 8 * 1024 * 1024) {
-                throw new Exception('ไฟล์ใหญ่เกิน 8 MB');
-            }
+                $error = 'ไฟล์รูปใหญ่เกิน 8 MB กรุณาเลือกไฟล์ขนาดเล็กกว่า';
+            } else {
             $ext = strtolower(pathinfo($_FILES['return_image']['name'], PATHINFO_EXTENSION));
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mime  = finfo_file($finfo, $_FILES['return_image']['tmp_name']);
@@ -58,10 +61,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $return_image = null; // อัปโหลดล้มเหลว — ไม่ save path ลง DB
                 }
             }
+            } // end else (size ok)
+        } // end elseif (file uploaded ok)
+
+        // ถ้า return แต่ไม่มีรูป (upload ล้มเหลว / mime ไม่ถูก) → หยุด
+        if ($action === 'return' && !$return_image && !$error) {
+            $error = 'อัปโหลดรูปไม่สำเร็จ หรือรูปแบบไฟล์ไม่รองรับ (JPG, PNG, WebP เท่านั้น)';
         }
 
-        $pdo->beginTransaction();
-        try {
+        if (!$error) $pdo->beginTransaction();
+        if (!$error) try {
             // Update booking status
             if ($return_image) {
                 $stmt = $pdo->prepare("UPDATE bookings SET status = ?, return_image_path = ? WHERE id = ?");
@@ -227,8 +236,8 @@ require_once __DIR__ . '/../includes/header.php';
                         <div style="color:var(--danger);"><?php echo date('d M, H:i',strtotime($b['end_datetime']));?></div>
                     </td>
                     <td>
-                        <?php if($b['form_image_path']):?><a href="../uploads/booking_forms/<?php echo $b['form_image_path'];?>" target="_blank" class="btn btn-outline btn-sm" style="padding:.3rem .5rem;"><i class="ph-bold ph-eye"></i></a><?php endif;?>
-                        <?php if(!empty($b['return_image_path'])):?><a href="../uploads/returns/<?php echo $b['return_image_path'];?>" target="_blank" class="btn btn-outline btn-sm" style="padding:.3rem .5rem;color:var(--info);border-color:var(--info);"><i class="ph-bold ph-image"></i></a><?php endif;?>
+                        <?php if($b['form_image_path']):?><a href="../uploads/booking_forms/<?php echo $b['form_image_path'];?>" target="_blank" class="btn btn-outline btn-sm" style="padding:.3rem .5rem;" title="เอกสารการจอง"><i class="ph-bold ph-eye"></i></a><?php endif;?>
+                        <?php if(!empty($b['return_image_path'])):?><button onclick="openImgView('../uploads/returns/<?php echo htmlspecialchars($b['return_image_path']);?>')" class="btn btn-outline btn-sm" style="padding:.3rem .5rem;color:var(--info);border-color:var(--info);" title="รูปหลักฐานคืน"><i class="ph-bold ph-image"></i></button><?php endif;?>
                         <?php if(!$b['form_image_path'] && empty($b['return_image_path'])):?><span class="text-muted">-</span><?php endif;?>
                     </td>
                     <td><span class="badge <?php echo $badgeClass;?>"><?php echo $label;?></span></td>
@@ -268,6 +277,12 @@ require_once __DIR__ . '/../includes/header.php';
             <?php if($b['responsible_name']):?><div class="mc-row"><span class="mc-label">ผู้รับผิดชอบ</span><span><?php echo htmlspecialchars($b['responsible_name']);?></span></div><?php endif;?>
             <div class="mc-row"><span class="mc-label">เริ่ม</span><span style="color:var(--success);font-size:.85rem;"><?php echo date('d M Y, H:i',strtotime($b['start_datetime']));?></span></div>
             <div class="mc-row"><span class="mc-label">สิ้นสุด</span><span style="color:var(--danger);font-size:.85rem;"><?php echo date('d M Y, H:i',strtotime($b['end_datetime']));?></span></div>
+            <?php if(!empty($b['return_image_path'])):?>
+            <div class="mc-row">
+                <span class="mc-label">รูปคืน</span>
+                <button onclick="openImgView('../uploads/returns/<?php echo htmlspecialchars($b['return_image_path']);?>')" class="btn btn-outline btn-sm" style="padding:.3rem .6rem;color:var(--info);border-color:var(--info);"><i class="ph-bold ph-image"></i> ดูรูป</button>
+            </div>
+            <?php endif;?>
             <?php if($b['status']==='pending'):?>
             <div class="mc-actions">
                 <form method="POST" style="flex:1"><?php echo csrf_input();?><input type="hidden" name="booking_id" value="<?php echo $b['id'];?>"><button name="action" value="approve" class="btn btn-success btn-sm w-100"><i class="ph-bold ph-check"></i> อนุมัติ</button></form>
@@ -293,26 +308,44 @@ require_once __DIR__ . '/../includes/header.php';
             <input type="hidden" name="booking_id" id="return_booking_id" value="">
             <input type="hidden" name="action" value="return">
             <div class="form-group">
-                <label><i class="ph ph-image"></i> ถ่ายรูปอุปกรณ์ตอนคืน</label>
-                <div class="upload-zone">
-                    <i class="ph-bold ph-camera"></i>
-                    <p>ถ่ายรูปอุปกรณ์เพื่อยืนยันสภาพ</p>
-                    <input type="file" name="return_image" accept="image/*">
+                <label><i class="ph ph-image"></i> ถ่ายรูปอุปกรณ์ตอนคืน <span style="color:var(--danger);font-weight:700;">*</span></label>
+                <div class="upload-zone" id="return-upload-zone" style="cursor:pointer;" onclick="document.getElementById('return_image_input').click()">
+                    <i class="ph-bold ph-camera" id="return-upload-icon"></i>
+                    <p id="return-upload-text">ถ่ายรูปอุปกรณ์เพื่อยืนยันสภาพ <br><small style="color:var(--danger);">* จำเป็นต้องแนบรูป</small></p>
+                    <img id="return-preview" src="" alt="" style="display:none;max-height:160px;border-radius:8px;margin-top:.5rem;">
+                    <input type="file" id="return_image_input" name="return_image" accept="image/*" required style="display:none;">
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary w-100"><i class="ph-bold ph-check-circle"></i> ยืนยันการคืน</button>
+            <button type="submit" id="return-submit-btn" class="btn btn-primary w-100" disabled>
+                <i class="ph-bold ph-check-circle"></i> ยืนยันการคืน
+            </button>
         </form>
     </div>
 </div>
 
+<!-- Image Viewer Modal (#9) -->
+<div id="imgViewModal" class="modal-overlay" role="dialog" aria-modal="true" style="padding:1rem;" onclick="if(event.target===this)closeImgView()">
+    <div style="max-width:90vw;max-height:88vh;position:relative;">
+        <button onclick="closeImgView()" aria-label="ปิด" style="position:absolute;top:-12px;right:-12px;background:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:1;"><i class="ph-bold ph-x"></i></button>
+        <img id="imgViewSrc" src="" alt="รูปหลักฐาน" style="max-width:90vw;max-height:85vh;border-radius:12px;display:block;object-fit:contain;">
+        <a id="imgViewLink" href="" target="_blank" style="display:block;text-align:center;margin-top:.5rem;font-size:.82rem;color:#fff;opacity:.8;"><i class="ph ph-arrow-square-out"></i> เปิดในแท็บใหม่</a>
+    </div>
+</div>
+
 <script>
-/* BUG-022 fix: ต้องรอ DOM load ครบก่อน — #bottom-nav อยู่ใน footer.php ซึ่ง render หลัง script นี้ */
+/* BUG-022 fix: ต้องรอ DOM load ครบก่อน */
 var _bn = null;
 document.addEventListener('DOMContentLoaded', function(){ _bn = document.getElementById('bottom-nav'); });
 
 function openReturnModal(bookingId) {
     document.getElementById('return_booking_id').value = bookingId;
-    window.scrollTo(0, 0); /* BUG-024 fix: ใช้ legacy form รองรับ Safari/Android เก่า */
+    // reset preview
+    document.getElementById('return-preview').style.display = 'none';
+    document.getElementById('return-upload-icon').style.display = '';
+    document.getElementById('return-upload-text').style.display = '';
+    document.getElementById('return_image_input').value = '';
+    document.getElementById('return-submit-btn').disabled = true;
+    window.scrollTo(0, 0);
     document.getElementById('returnModal').classList.add('open');
     document.body.style.overflow = 'hidden';
     if (_bn) { _bn.style.pointerEvents = 'none'; _bn.style.visibility = 'hidden'; }
@@ -322,12 +355,51 @@ function closeReturnModal() {
     document.body.style.overflow = '';
     if (_bn) { _bn.style.pointerEvents = ''; _bn.style.visibility = ''; }
 }
+
+// File picker + preview for return image
 document.addEventListener('DOMContentLoaded', function(){
     document.getElementById('returnModal').addEventListener('click', function(e) {
         if (e.target === this) closeReturnModal();
     });
+
+    var fileInput = document.getElementById('return_image_input');
+    var preview   = document.getElementById('return-preview');
+    var submitBtn = document.getElementById('return-submit-btn');
+    var icon      = document.getElementById('return-upload-icon');
+    var txt       = document.getElementById('return-upload-text');
+
+    fileInput.addEventListener('change', function(){
+        if (this.files && this.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(ev){
+                preview.src = ev.target.result;
+                preview.style.display = 'block';
+                icon.style.display = 'none';
+                txt.style.display = 'none';
+            };
+            reader.readAsDataURL(this.files[0]);
+            submitBtn.disabled = false;
+        } else {
+            submitBtn.disabled = true;
+        }
+    });
 });
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeReturnModal(); });
+
+/* Image viewer popup (#9) */
+function openImgView(src) {
+    document.getElementById('imgViewSrc').src = src;
+    document.getElementById('imgViewLink').href = src;
+    document.getElementById('imgViewModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+function closeImgView() {
+    document.getElementById('imgViewModal').classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { closeReturnModal(); closeImgView(); }
+});
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

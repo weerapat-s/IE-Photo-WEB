@@ -79,11 +79,10 @@ function isActive($page) {
                         <a href="<?php echo $base_url; ?>admin/inventory.php" class="<?php echo isActive('inventory');?>"><i class="ph ph-package"></i> คลังอุปกรณ์</a>
                         <a href="<?php echo $base_url; ?>admin/tasks.php" class="<?php echo isActive('tasks');?>"><i class="ph ph-kanban"></i> จัดการงาน</a>
                         <a href="<?php echo $base_url; ?>member/calendar.php" class="<?php echo isActive('calendar');?>"><i class="ph ph-calendar"></i> ปฏิทิน</a>
-                        <a href="<?php echo $base_url; ?>member/contact_list.php" class="<?php echo isActive('contact_list');?>"><i class="ph ph-address-book"></i> สมาชิก</a>
                         <a href="<?php echo $base_url; ?>admin/users.php" class="<?php echo isActive('users');?>"><i class="ph ph-users"></i> จัดการสมาชิก</a>
-                        <a href="<?php echo $base_url; ?>admin/contact_manage.php" class="<?php echo isActive('contact_manage');?>"><i class="ph ph-users-three"></i> จัดการระบบ</a>
                         <a href="<?php echo $base_url; ?>admin/visitors.php" class="<?php echo isActive('visitors');?>"><i class="ph ph-eye"></i> ผู้เข้าชม</a>
                         <a href="<?php echo $base_url; ?>admin/ip_manager.php" class="<?php echo isActive('ip_manager');?>"><i class="ph ph-shield-warning"></i> จัดการ IP</a>
+                        <a href="https://line.me/ti/g/IE-Photo" target="_blank" style="color:#06c755 !important;"><i class="ph ph-chat-circle-text"></i> ติดต่อทันที</a>
 
                     <?php elseif($__role === 'admin'): ?>
                     <!-- ══ ADMIN nav ════════════════════════════════════════════ -->
@@ -95,9 +94,8 @@ function isActive($page) {
                         <a href="<?php echo $base_url; ?>admin/inventory.php" class="<?php echo isActive('inventory');?>"><i class="ph ph-package"></i> คลังอุปกรณ์</a>
                         <a href="<?php echo $base_url; ?>admin/tasks.php" class="<?php echo isActive('tasks');?>"><i class="ph ph-kanban"></i> จัดการงาน</a>
                         <a href="<?php echo $base_url; ?>member/calendar.php" class="<?php echo isActive('calendar');?>"><i class="ph ph-calendar"></i> ปฏิทิน</a>
-                        <a href="<?php echo $base_url; ?>member/contact_list.php" class="<?php echo isActive('contact_list');?>"><i class="ph ph-address-book"></i> สมาชิก</a>
                         <a href="<?php echo $base_url; ?>admin/users.php" class="<?php echo isActive('users');?>"><i class="ph ph-users"></i> จัดการสมาชิก</a>
-                        <a href="<?php echo $base_url; ?>admin/contact_manage.php" class="<?php echo isActive('contact_manage');?>"><i class="ph ph-users-three"></i> จัดการระบบ</a>
+                        <a href="https://line.me/ti/g/IE-Photo" target="_blank" style="color:#06c755 !important;"><i class="ph ph-chat-circle-text"></i> ติดต่อทันที</a>
 
                     <?php else: ?>
                     <!-- ══ MEMBER nav ═══════════════════════════════════════════ -->
@@ -106,7 +104,7 @@ function isActive($page) {
                         <a href="<?php echo $base_url; ?>guest/studio_booking.php" class="<?php echo isActive('studio_booking');?>"><i class="ph ph-video-camera"></i> จองสตูดิโอ</a>
                         <a href="<?php echo $base_url; ?>member/my_tasks.php" class="<?php echo isActive('my_tasks');?>"><i class="ph ph-kanban"></i> งานของฉัน</a>
                         <a href="<?php echo $base_url; ?>member/calendar.php" class="<?php echo isActive('calendar');?>"><i class="ph ph-calendar"></i> ปฏิทิน</a>
-                        <a href="<?php echo $base_url; ?>member/contact_list.php" class="<?php echo isActive('contact_list');?>"><i class="ph ph-address-book"></i> สมาชิก</a>
+                        <a href="https://line.me/ti/g/IE-Photo" target="_blank" style="color:#06c755 !important;"><i class="ph ph-chat-circle-text"></i> ติดต่อทันที</a>
                     <?php endif; ?>
 
                     <div class="nav-profile">

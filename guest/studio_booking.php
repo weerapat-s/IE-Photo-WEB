@@ -8,8 +8,8 @@ require_once __DIR__ . '/../includes/email_templates.php';
 $error = '';
 $success = '';
 
-// Fetch available studios — ใช้ 'available' ตรงกับ DB schema
-$stmt = $pdo->query("SELECT id, name FROM studios WHERE status = 'available' ORDER BY name ASC");
+// Fetch available studios — status='open' คือห้องที่เปิดให้จอง
+$stmt = $pdo->query("SELECT id, name FROM studios WHERE status IN ('open','available') ORDER BY name ASC");
 $studios = $stmt->fetchAll();
 
 // Pre-fill from session if logged in
@@ -105,27 +105,66 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 
     <div class="studio-booking-grid">
-        <!-- Studio Previews -->
+        <!-- Studio Info Cards -->
         <div class="glass-card animate-in">
-            <h3 style="font-size:1.1rem;margin-bottom:1.2rem;"><i class="ph-bold ph-images"></i> ตัวอย่างห้องสตูดิโอ</h3>
-            <div style="display:flex;flex-direction:column;gap:1rem;">
-                <div style="border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);">
-                    <div style="height:140px;background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;align-items:center;justify-content:center;">
-                        <i class="ph-bold ph-lamp" style="font-size:3rem;color:rgba(255,255,255,.3)"></i>
+            <h3 style="font-size:1.1rem;margin-bottom:1.2rem;"><i class="ph-bold ph-images"></i> ห้องสตูดิโอของเรา</h3>
+            <div style="display:flex;flex-direction:column;gap:1.1rem;">
+
+                <!-- Studio 1 -->
+                <div style="border-radius:var(--radius-sm);overflow:hidden;border:1.5px solid rgba(242,83,28,.2);">
+                    <div style="height:130px;background:linear-gradient(135deg,#1a1a2e 0%,#2d1f5e 50%,#1a1a2e 100%);display:flex;align-items:center;justify-content:center;gap:1rem;padding:1rem;">
+                        <i class="ph-bold ph-lamp" style="font-size:2.6rem;color:#f2a93b;filter:drop-shadow(0 0 12px rgba(242,169,59,.5))"></i>
+                        <div style="color:#fff;">
+                            <div style="font-size:1rem;font-weight:700;">Studio 1</div>
+                            <div style="font-size:.75rem;opacity:.7;">Professional Lighting</div>
+                        </div>
                     </div>
-                    <div style="padding:.8rem;">
-                        <h4 style="margin:0;font-size:.95rem;">Studio 1: Professional Lighting</h4>
-                        <p style="font-size:.82rem;color:var(--text-secondary);margin:.3rem 0 0;">อุปกรณ์ไฟครบครัน เหมาะสำหรับงาน Portrait และ Fashion</p>
+                    <div style="padding:.9rem;">
+                        <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem;">
+                            <span style="font-size:.72rem;padding:.2rem .55rem;border-radius:20px;background:rgba(242,83,28,.08);color:var(--primary);font-weight:600;">📸 Portrait</span>
+                            <span style="font-size:.72rem;padding:.2rem .55rem;border-radius:20px;background:rgba(242,83,28,.08);color:var(--primary);font-weight:600;">👗 Fashion</span>
+                            <span style="font-size:.72rem;padding:.2rem .55rem;border-radius:20px;background:rgba(242,83,28,.08);color:var(--primary);font-weight:600;">🎬 MV</span>
+                        </div>
+                        <ul style="font-size:.82rem;color:var(--text-secondary);margin:0;padding-left:1.1rem;line-height:1.8;">
+                            <li>ชุดไฟ Strobe 4 จุด + Softbox</li>
+                            <li>พื้นหลัง Seamless ขาว / ดำ / เทา</li>
+                            <li>ขนาดพื้นที่ ~6×8 เมตร</li>
+                            <li>มีอุปกรณ์เสริม: Reflector, Stand</li>
+                        </ul>
                     </div>
                 </div>
-                <div style="border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);">
-                    <div style="height:140px;background:linear-gradient(135deg,#f5f0e8,#e8dcc8);display:flex;align-items:center;justify-content:center;">
-                        <i class="ph-bold ph-plant" style="font-size:3rem;color:rgba(0,0,0,.15)"></i>
+
+                <!-- Studio 2 -->
+                <div style="border-radius:var(--radius-sm);overflow:hidden;border:1.5px solid rgba(59,130,246,.2);">
+                    <div style="height:130px;background:linear-gradient(135deg,#f5f0e8 0%,#fde8cc 50%,#f5f0e8 100%);display:flex;align-items:center;justify-content:center;gap:1rem;padding:1rem;">
+                        <i class="ph-bold ph-sun" style="font-size:2.6rem;color:#f59e0b;filter:drop-shadow(0 0 12px rgba(245,158,11,.4))"></i>
+                        <div style="color:#333;">
+                            <div style="font-size:1rem;font-weight:700;">Studio 2</div>
+                            <div style="font-size:.75rem;opacity:.6;">Natural Light / Minimal</div>
+                        </div>
                     </div>
-                    <div style="padding:.8rem;">
-                        <h4 style="margin:0;font-size:.95rem;">Studio 2: Creative Minimal</h4>
-                        <p style="font-size:.82rem;color:var(--text-secondary);margin:.3rem 0 0;">เน้นแสงธรรมชาติ เหมาะสำหรับงาน Product และ MV</p>
+                    <div style="padding:.9rem;">
+                        <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem;">
+                            <span style="font-size:.72rem;padding:.2rem .55rem;border-radius:20px;background:rgba(59,130,246,.08);color:var(--info);font-weight:600;">📦 Product</span>
+                            <span style="font-size:.72rem;padding:.2rem .55rem;border-radius:20px;background:rgba(59,130,246,.08);color:var(--info);font-weight:600;">🌿 Lifestyle</span>
+                            <span style="font-size:.72rem;padding:.2rem .55rem;border-radius:20px;background:rgba(59,130,246,.08);color:var(--info);font-weight:600;">🎥 Vlog</span>
+                        </div>
+                        <ul style="font-size:.82rem;color:var(--text-secondary);margin:0;padding-left:1.1rem;line-height:1.8;">
+                            <li>หน้าต่างแสงธรรมชาติขนาดใหญ่</li>
+                            <li>พื้นหลัง White Infinity Cyc Wall</li>
+                            <li>ขนาดพื้นที่ ~5×6 เมตร</li>
+                            <li>เหมาะงาน minimal, clean-look</li>
+                        </ul>
                     </div>
+                </div>
+
+                <!-- Contact info -->
+                <div style="background:rgba(242,83,28,.04);border-radius:var(--radius-sm);padding:.8rem;font-size:.82rem;color:var(--text-secondary);">
+                    <i class="ph ph-info" style="color:var(--primary);"></i>
+                    <strong style="color:var(--text);">เวลาเปิด-ปิด:</strong> จ–ศ 08:00–20:00 น. / ส–อา 09:00–17:00 น.<br>
+                    <i class="ph ph-phone" style="color:var(--primary);"></i>
+                    <strong style="color:var(--text);">สอบถาม:</strong>
+                    <a href="https://line.me/ti/g/IE-Photo" target="_blank" style="color:var(--primary);font-weight:600;">LINE: @IE-Photo</a>
                 </div>
             </div>
         </div>
@@ -173,36 +212,71 @@ require_once __DIR__ . '/../includes/header.php';
                     <label for="usage_reason"><i class="ph ph-text-align-left"></i> เหตุผลการเข้าใช้งาน</label>
                     <textarea id="usage_reason" name="usage_reason" class="form-control" rows="3" placeholder="ระบุวัตถุประสงค์ในการใช้งาน" required></textarea>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="start_datetime"><i class="ph ph-calendar"></i> วันเวลาเริ่มต้น</label>
-                        <input type="datetime-local" id="start_datetime" name="start_datetime" class="form-control" required min="<?php echo date('Y-m-d\TH:i'); ?>">
-                    </div>
-                    <div class="form-group">
-                        <label for="end_datetime"><i class="ph ph-calendar-check"></i> วันเวลาสิ้นสุด</label>
-                        <input type="datetime-local" id="end_datetime" name="end_datetime" class="form-control" required min="<?php echo date('Y-m-d\TH:i'); ?>">
+                <div class="form-group">
+                    <label for="start_datetime"><i class="ph ph-calendar"></i> วันเวลาเริ่มต้น</label>
+                    <input type="datetime-local" id="start_datetime" name="start_datetime" class="form-control" required
+                           min="<?php echo date('Y-m-d\TH:i'); ?>">
+                </div>
+                <div class="form-group">
+                    <label for="end_datetime"><i class="ph ph-calendar-check"></i> วันเวลาสิ้นสุด</label>
+                    <input type="datetime-local" id="end_datetime" name="end_datetime" class="form-control" required
+                           min="<?php echo date('Y-m-d\TH:i'); ?>">
+                    <div id="dt-error" style="display:none;color:var(--danger);font-size:.82rem;margin-top:.3rem;">
+                        <i class="ph ph-warning-circle"></i> เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary w-100 mt-2">
+
+                <button type="submit" id="booking-submit-btn" class="btn btn-primary w-100 mt-2">
                     <i class="ph-bold ph-calendar-check"></i> ส่งคำขอจอง
                 </button>
-                <p class="text-center mt-3">
-                    <?php
-                        if (isset($_SESSION['user_id'])) {
-                            if ($_SESSION['role'] === 'admin') {
-                                $home = '../admin/dashboard.php';
-                            } else {
-                                $home = '../member/feed.php';
-                            }
-                        } else {
-                            $home = '../auth/login.php';
-                        }
-                    ?>
-                    <a href="<?php echo $home; ?>" style="font-size:.88rem;color:var(--text-muted);"><i class="ph ph-arrow-left"></i> กลับไปหน้าหลัก</a>
-                </p>
+                <?php
+                    if (isset($_SESSION['user_id'])) {
+                        $home = in_array($_SESSION['role'], ['admin','super_admin']) ? '../admin/dashboard.php' : '../member/feed.php';
+                    } else {
+                        $home = '../auth/login.php';
+                    }
+                ?>
+                <a href="<?php echo $home; ?>" class="btn btn-outline w-100 mt-2" style="justify-content:center;">
+                    <i class="ph ph-arrow-left"></i> กลับไปหน้าหลัก
+                </a>
             </form>
         </div>
     </div>
 </div>
 
+<script>
+(function(){
+    var startEl = document.getElementById('start_datetime');
+    var endEl   = document.getElementById('end_datetime');
+    var errEl   = document.getElementById('dt-error');
+    var btnEl   = document.getElementById('booking-submit-btn');
+
+    // ตั้ง min ของ start ให้อ้างอิงเวลาจริงของ browser (ไม่ใช่ server render time)
+    function nowLocal(){
+        var d = new Date();
+        d.setSeconds(0,0);
+        return d.toISOString().slice(0,16);
+    }
+    startEl.min = nowLocal();
+
+    function validate(){
+        var s = startEl.value, e = endEl.value;
+        var now = nowLocal();
+        // ป้องกัน start อยู่ในอดีต
+        if(s && s < now){ startEl.value = now; s = now; }
+        // อัพเดท min ของ end ให้ = start (หรืออย่างน้อย = now)
+        if(s){ endEl.min = s; }
+        // ตรวจ end > start
+        var invalid = s && e && e <= s;
+        errEl.style.display = invalid ? 'flex' : 'none';
+        endEl.classList.toggle('is-invalid', !!invalid);
+        if(btnEl) btnEl.disabled = !!invalid;
+    }
+
+    startEl.addEventListener('change', validate);
+    endEl.addEventListener('change', validate);
+    // Real-time refresh ทุก 60s เพื่ออัพเดท min ตามเวลาจริง
+    setInterval(function(){ startEl.min = nowLocal(); }, 60000);
+})();
+</script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

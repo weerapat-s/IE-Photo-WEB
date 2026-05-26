@@ -34,7 +34,19 @@ if (!$tableExists) {
         due_date DATETIME DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} else {
+    // ตรวจสอบ charset ของตาราง — แก้ไขถ้าไม่ใช่ utf8mb4 (ป้องกัน Thai ??? บน DB เก่า)
+    try {
+        $cs = $pdo->query("SELECT CCSA.character_set_name
+            FROM information_schema.TABLES T
+            JOIN information_schema.COLLATION_CHARACTER_SET_APPLICABILITY CCSA
+                ON CCSA.collation_name = T.TABLE_COLLATION
+            WHERE T.TABLE_SCHEMA = DATABASE() AND T.TABLE_NAME = 'tasks'")->fetchColumn();
+        if ($cs && strtolower($cs) !== 'utf8mb4') {
+            $pdo->exec("ALTER TABLE tasks CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        }
+    } catch (Exception $e) { /* ไม่ critical */ }
 }
 
 // Handle actions
