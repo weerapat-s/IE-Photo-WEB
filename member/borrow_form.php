@@ -247,17 +247,19 @@ require_once __DIR__ . '/../includes/header.php';
 
             <!-- Document Upload -->
             <div class="form-group">
-                <label><i class="ph-bold ph-upload"></i> อัปโหลดเอกสารขออนุญาต</label>
+                <label><i class="ph-bold ph-upload"></i> อัปโหลดเอกสารขออนุญาต <span style="color:var(--danger)">*</span></label>
                 <div class="upload-zone" id="drop-zone">
-                    <i class="ph-bold ph-image"></i>
-                    <p>ถ่ายรูป/ลากไฟล์ หรือคลิกเพื่อเลือก</p>
+                    <i class="ph-bold ph-image" id="upload-icon"></i>
+                    <p id="upload-hint">ถ่ายรูป/ลากไฟล์ หรือคลิกเพื่อเลือก</p>
                     <input type="file" id="form_image" name="form_image" required accept="image/*,.pdf">
                     <span id="file-name-display" class="badge" style="background:var(--primary);color:#fff;display:none;margin-top:8px;"></span>
                 </div>
-                <small class="text-muted" style="font-size:.8rem;display:block;margin-top:.3rem;"><i class="ph ph-info"></i> รองรับ JPG, PNG, PDF</small>
+                <small id="file-hint" style="font-size:.8rem;display:block;margin-top:.3rem;color:var(--danger);font-weight:500;">
+                    <i class="ph ph-warning-circle"></i> กรุณาแนบเอกสารก่อนส่งคำขอ (JPG, PNG, PDF)
+                </small>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 mt-2" <?php echo empty($equipments) ? 'disabled' : ''; ?>>
+            <button type="submit" id="submit-btn" class="btn btn-primary w-100 mt-2" disabled>
                 <i class="ph-bold ph-paper-plane-tilt"></i> ส่งคำขอยืมอุปกรณ์
             </button>
         </form>
@@ -275,13 +277,45 @@ document.querySelectorAll('.eq-checkbox').forEach(cb => {
     });
 });
 
-// File upload feedback
+// ── Central submit-button gate ────────────────────────────────────────────────
+var fileSelected    = false;
+var datetimeInvalid = false;
+<?php if(empty($equipments)): ?>
+var noEquipment = true;
+<?php else: ?>
+var noEquipment = false;
+<?php endif; ?>
+
+function updateSubmitBtn(){
+    var btn = document.getElementById('submit-btn');
+    if(!btn) return;
+    btn.disabled = noEquipment || !fileSelected || datetimeInvalid;
+}
+updateSubmitBtn();
+
+// File upload feedback + gate
 document.getElementById('form_image').addEventListener('change', function() {
+    var hint = document.getElementById('file-hint');
+    var icon = document.getElementById('upload-icon');
     if(this.files && this.files[0]) {
         const d = document.getElementById('file-name-display');
         d.innerText = '📎 ' + this.files[0].name;
         d.style.display = 'inline-block';
+        // อัปเดต icon + hint เป็นสีเขียว
+        icon.className = 'ph-bold ph-check-circle';
+        icon.style.color = 'var(--success)';
+        icon.style.opacity = '1';
+        hint.innerHTML = '<i class="ph ph-check-circle" style="color:var(--success)"></i> <span style="color:var(--success)">แนบเอกสารเรียบร้อยแล้ว</span>';
+        fileSelected = true;
+    } else {
+        fileSelected = false;
+        icon.className = 'ph-bold ph-image';
+        icon.style.color = '';
+        icon.style.opacity = '';
+        hint.innerHTML = '<i class="ph ph-warning-circle"></i> กรุณาแนบเอกสารก่อนส่งคำขอ (JPG, PNG, PDF)';
+        hint.style.color = 'var(--danger)';
     }
+    updateSubmitBtn();
 });
 
 // Datetime validation — กันเลือก end ก่อน start
@@ -289,7 +323,6 @@ document.getElementById('form_image').addEventListener('change', function() {
     var startEl = document.getElementById('start_datetime');
     var endEl   = document.getElementById('end_datetime');
     var errEl   = document.getElementById('dt-error');
-    var btnEl   = document.querySelector('button[type="submit"]');
 
     function nowLocal(){
         var d = new Date(); d.setSeconds(0,0);
@@ -302,10 +335,10 @@ document.getElementById('form_image').addEventListener('change', function() {
         var now = nowLocal();
         if(s && s < now){ startEl.value = now; s = now; }
         if(s) endEl.min = s;
-        var invalid = s && e && e <= s;
-        errEl.style.display = invalid ? 'flex' : 'none';
-        endEl.classList.toggle('is-invalid', !!invalid);
-        if(btnEl) btnEl.disabled = !!invalid;
+        datetimeInvalid = !!(s && e && e <= s);
+        errEl.style.display = datetimeInvalid ? 'flex' : 'none';
+        endEl.classList.toggle('is-invalid', datetimeInvalid);
+        updateSubmitBtn();
     }
     startEl.addEventListener('change', validate);
     endEl.addEventListener('change', validate);
