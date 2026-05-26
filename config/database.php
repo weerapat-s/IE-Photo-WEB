@@ -296,13 +296,143 @@ if (!function_exists('get_client_ip')) {
         } catch (Exception $e) { /* non-critical — never block page load */ }
     }
 
-    /** ลบ log เก่าเกิน 7 วัน + expired auto-blocks */
+    /** ลบ log เก่าเกิน 7 วัน + expired auto-blocks + geo cache เก่า 7 วัน */
     function ip_cleanup(PDO $pdo): void {
         try {
             $pdo->exec("DELETE FROM login_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 7 DAY)");
             $pdo->exec("DELETE FROM ip_blocks WHERE blocked_by='auto' AND blocked_until IS NOT NULL AND blocked_until < NOW()");
             $pdo->exec("DELETE FROM visitor_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)");
+            $pdo->exec("DELETE FROM ip_geo_cache WHERE cached_at < DATE_SUB(NOW(), INTERVAL 7 DAY)");
         } catch (Exception $e) { }
+    }
+}
+
+// ─── IP Geolocation helpers ──────────────────────────────────────────────────
+if (!function_exists('ip_geo_ensure_table')) {
+
+    /** สร้างตาราง cache geolocation ถ้ายังไม่มี */
+    function ip_geo_ensure_table(PDO $pdo): void {
+        static $done = false;
+        if ($done) return;
+        $done = true;
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS ip_geo_cache (
+                ip_address   VARCHAR(45)   PRIMARY KEY,
+                country      VARCHAR(100)  DEFAULT NULL,
+                country_code VARCHAR(5)    DEFAULT NULL,
+                region       VARCHAR(100)  DEFAULT NULL,
+                city         VARCHAR(100)  DEFAULT NULL,
+                isp          VARCHAR(200)  DEFAULT NULL,
+                lat          DECIMAL(10,6) DEFAULT NULL,
+                lon          DECIMAL(10,6) DEFAULT NULL,
+                cached_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_cached (cached_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (Exception $e) { error_log('ip_geo_ensure_table: ' . $e->getMessage()); }
+    }
+
+    /**
+     * ดึง geolocation ของหลาย IP พร้อมกัน (batch)
+     * - เช็ค cache ก่อน (24h TTL)
+     * - IP ที่ไม่มีใน cache → ยิง ip-api.com/batch (POST, สูงสุด 100 IPs ต่อครั้ง)
+     * - บันทึกผลลง cache
+     * คืน array keyed by IP: ['country'=>..., 'country_code'=>..., 'city'=>..., 'isp'=>...]
+     */
+    function get_ip_geos(PDO $pdo, array $ips): array {
+        if (empty($ips)) return [];
+        ip_geo_ensure_table($pdo);
+
+        $result   = [];
+        $toFetch  = [];
+
+        // แยก private/loopback ออกก่อน
+        foreach ($ips as $ip) {
+            if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                $result[$ip] = ['country'=>'Local','country_code'=>'','region'=>'','city'=>'Private','isp'=>'—'];
+            } else {
+                $toFetch[] = $ip;
+            }
+        }
+
+        if (empty($toFetch)) return $result;
+
+        // ดึงจาก cache ในครั้งเดียว
+        $in   = implode(',', array_fill(0, count($toFetch), '?'));
+        $stmt = $pdo->prepare("SELECT * FROM ip_geo_cache WHERE ip_address IN ($in) AND cached_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)");
+        $stmt->execute($toFetch);
+        $cached = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $cached[$row['ip_address']] = $row;
+        }
+
+        // IPs ที่ยังไม่มีใน cache
+        $missing = array_values(array_diff($toFetch, array_keys($cached)));
+
+        // Merge cached ลง result
+        foreach ($cached as $ip => $row) {
+            $result[$ip] = $row;
+        }
+
+        // Batch fetch จาก ip-api.com (สูงสุด 100 IP ต่อครั้ง)
+        if (!empty($missing)) {
+            foreach (array_chunk($missing, 100) as $chunk) {
+                $payload = json_encode(array_map(fn($ip) => [
+                    'query'  => $ip,
+                    'fields' => 'status,query,country,countryCode,regionName,city,isp,lat,lon',
+                ], $chunk));
+                $ctx  = stream_context_create(['http' => [
+                    'method'  => 'POST',
+                    'header'  => "Content-Type: application/json\r\n",
+                    'content' => $payload,
+                    'timeout' => 5,
+                ]]);
+                $json = @file_get_contents('http://ip-api.com/batch?fields=status,query,country,countryCode,regionName,city,isp,lat,lon', false, $ctx);
+                if ($json === false) {
+                    foreach ($chunk as $ip) $result[$ip] = ['country'=>'?','country_code'=>'','region'=>'','city'=>'ดึงข้อมูลไม่ได้','isp'=>'—'];
+                    continue;
+                }
+                $rows = json_decode($json, true) ?? [];
+                $inserts = [];
+                foreach ($rows as $r) {
+                    $ip = $r['query'] ?? '';
+                    if (!$ip) continue;
+                    if (($r['status'] ?? '') === 'success') {
+                        $geo = [
+                            'ip_address'   => $ip,
+                            'country'      => $r['country']     ?? '',
+                            'country_code' => $r['countryCode'] ?? '',
+                            'region'       => $r['regionName']  ?? '',
+                            'city'         => $r['city']        ?? '',
+                            'isp'          => $r['isp']         ?? '',
+                            'lat'          => $r['lat']         ?? null,
+                            'lon'          => $r['lon']         ?? null,
+                        ];
+                    } else {
+                        $geo = ['ip_address'=>$ip,'country'=>'?','country_code'=>'','region'=>'','city'=>'ไม่พบข้อมูล','isp'=>'—','lat'=>null,'lon'=>null];
+                    }
+                    $result[$ip]  = $geo;
+                    $inserts[]    = $geo;
+                }
+                // บันทึก cache
+                foreach ($inserts as $g) {
+                    try {
+                        $pdo->prepare("INSERT INTO ip_geo_cache (ip_address,country,country_code,region,city,isp,lat,lon)
+                            VALUES (?,?,?,?,?,?,?,?)
+                            ON DUPLICATE KEY UPDATE country=VALUES(country),country_code=VALUES(country_code),
+                            region=VALUES(region),city=VALUES(city),isp=VALUES(isp),lat=VALUES(lat),lon=VALUES(lon),cached_at=NOW()")
+                            ->execute([$g['ip_address'],$g['country'],$g['country_code'],$g['region'],$g['city'],$g['isp'],$g['lat'],$g['lon']]);
+                    } catch (Exception $e) { /* non-critical */ }
+                }
+            }
+        }
+        return $result;
+    }
+
+    /** แปลง country_code เป็น flag emoji (TH → 🇹🇭) */
+    function country_flag(string $cc): string {
+        $cc = strtoupper(trim($cc));
+        if (strlen($cc) !== 2) return '🌐';
+        return mb_chr(ord($cc[0]) + 127397, 'UTF-8') . mb_chr(ord($cc[1]) + 127397, 'UTF-8');
     }
 }
 

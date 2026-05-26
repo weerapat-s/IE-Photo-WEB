@@ -72,6 +72,15 @@ try {
     error_log('visitors.php DB error: ' . $e->getMessage());
 }
 
+// ── Geolocation batch lookup ─────────────────────────────────────────────────
+// รวบรวม IP ทั้งหมดที่แสดงในหน้านี้ แล้วดึง geo พร้อมกัน (cached 24h)
+$allIps = array_unique(array_filter(array_merge(
+    array_column($onlineList,  'ip_address'),
+    array_column($topIps,      'ip_address'),
+    array_column($recentVisits,'ip_address')
+)));
+$geos = !empty($allIps) ? get_ip_geos($pdo, array_values($allIps)) : [];
+
 $base_url = '../';
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -119,9 +128,13 @@ require_once __DIR__ . '/../includes/header.php';
     <?php else:?>
     <div style="display:flex;flex-direction:column;gap:.4rem;">
     <?php foreach($onlineList as $ol):
-        $isAdmin  = $ol['role'] === 'admin';
+        $isAdmin  = in_array($ol['role'], ['admin','super_admin']);
         $isMember = $ol['user_id'] !== null;
         $pageShort = preg_replace('/\?.*$/', '', basename($ol['last_page']));
+        $geo = $geos[$ol['ip_address']] ?? [];
+        $flag = country_flag($geo['country_code'] ?? '');
+        $loc  = trim(($geo['city'] ?? '') . ($geo['city'] && $geo['country'] ? ', ' : '') . ($geo['country'] ?? ''));
+        $isp  = $geo['isp'] ?? '';
     ?>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:.65rem .9rem;background:rgba(34,197,94,.05);border-radius:var(--radius-xs);border:1px solid rgba(34,197,94,.15);">
             <div style="display:flex;align-items:center;gap:.8rem;">
@@ -135,9 +148,10 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php else:?>
                         <span class="badge" style="background:rgba(0,0,0,.06);margin-left:.4rem;">Guest</span>
                     <?php endif;?>
-                    <div style="font-size:.75rem;color:var(--text-muted);margin-top:.1rem;">
-                        <i class="ph ph-file-text"></i> <?php echo htmlspecialchars($pageShort ?: '/');?>
-                        &nbsp;·&nbsp; <?php echo $ol['hits'];?> hits
+                    <div style="font-size:.75rem;color:var(--text-muted);margin-top:.15rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;">
+                        <?php if($loc):?><span><?php echo $flag;?> <?php echo htmlspecialchars($loc);?></span><?php endif;?>
+                        <?php if($isp):?><span style="opacity:.7;">· <?php echo htmlspecialchars($isp);?></span><?php endif;?>
+                        <span>· <i class="ph ph-file-text"></i> <?php echo htmlspecialchars($pageShort ?: '/');?> · <?php echo $ol['hits'];?> hits</span>
                     </div>
                 </div>
             </div>
@@ -192,15 +206,27 @@ require_once __DIR__ . '/../includes/header.php';
         <div style="display:flex;flex-direction:column;gap:.35rem;">
         <?php foreach($topIps as $ti):
             $isMember = $ti['user_id'] !== null;
+            $geo = $geos[$ti['ip_address']] ?? [];
+            $flag = country_flag($geo['country_code'] ?? '');
+            $loc  = trim(($geo['city'] ?? '') . ($geo['city'] && $geo['country'] ? ', ' : '') . ($geo['country'] ?? ''));
+            $isp  = $geo['isp'] ?? '';
         ?>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem .7rem;background:rgba(0,0,0,.025);border-radius:var(--radius-xs);">
-                <div>
-                    <code style="font-size:.83rem;"><?php echo htmlspecialchars($ti['ip_address']);?></code>
-                    <?php if($isMember):?>
-                        <span style="font-size:.72rem;color:var(--success);margin-left:.3rem;"><?php echo $ti['role']==='admin'?'admin':'สมาชิก';?></span>
-                    <?php endif;?>
+            <div style="padding:.55rem .7rem;background:rgba(0,0,0,.025);border-radius:var(--radius-xs);">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <code style="font-size:.83rem;"><?php echo htmlspecialchars($ti['ip_address']);?></code>
+                        <?php if($isMember):?>
+                            <span style="font-size:.72rem;color:var(--success);margin-left:.3rem;"><?php echo in_array($ti['role'],['admin','super_admin'])?'admin':'สมาชิก';?></span>
+                        <?php endif;?>
+                    </div>
+                    <span style="font-size:.8rem;font-weight:600;color:var(--primary);"><?php echo $ti['hits'];?> hits</span>
                 </div>
-                <span style="font-size:.8rem;font-weight:600;color:var(--primary);"><?php echo $ti['hits'];?></span>
+                <?php if($loc || $isp):?>
+                <div style="font-size:.72rem;color:var(--text-muted);margin-top:.15rem;">
+                    <?php if($loc):?><?php echo $flag;?> <?php echo htmlspecialchars($loc);?><?php endif;?>
+                    <?php if($isp):?><span style="opacity:.7;"> · <?php echo htmlspecialchars($isp);?></span><?php endif;?>
+                </div>
+                <?php endif;?>
             </div>
         <?php endforeach;?>
         </div>
@@ -240,20 +266,34 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="table-responsive">
         <table class="glass-table">
             <thead>
-                <tr><th>เวลา</th><th>IP</th><th>ผู้ใช้</th><th>หน้า</th><th>Method</th><th>User-Agent</th></tr>
+                <tr><th>เวลา</th><th>IP</th><th>ตำแหน่ง</th><th>ผู้ใช้</th><th>หน้า</th><th>Method</th><th>User-Agent</th></tr>
             </thead>
             <tbody>
             <?php foreach($recentVisits as $v):
                 $pageShort  = htmlspecialchars(preg_replace('/\?.*$/', '', basename($v['page_url'])) ?: '/');
                 $isPost     = $v['http_method'] === 'POST';
+                $geo  = $geos[$v['ip_address']] ?? [];
+                $flag = country_flag($geo['country_code'] ?? '');
+                $city = $geo['city'] ?? '';
+                $ctry = $geo['country'] ?? '';
+                $isp  = $geo['isp'] ?? '';
+                $loc  = trim($city . ($city && $ctry ? ', ' : '') . $ctry);
             ?>
                 <tr>
                     <td style="font-size:.75rem;white-space:nowrap;"><?php echo date('d M, H:i:s', strtotime($v['created_at']));?></td>
                     <td><code style="font-size:.8rem;"><?php echo htmlspecialchars($v['ip_address']);?></code></td>
+                    <td style="font-size:.78rem;min-width:130px;">
+                        <?php if($loc):?>
+                            <div><?php echo $flag;?> <?php echo htmlspecialchars($loc);?></div>
+                        <?php endif;?>
+                        <?php if($isp):?>
+                            <div style="color:var(--text-muted);font-size:.7rem;margin-top:.1rem;"><?php echo htmlspecialchars($isp);?></div>
+                        <?php endif;?>
+                    </td>
                     <td style="font-size:.82rem;">
                         <?php if($v['user_id']):?>
-                            <span style="color:<?php echo $v['role']==='admin'?'#6366f1':'var(--success)';?>;">
-                                <?php echo $v['role']==='admin'?'👤 admin':'✓ '.htmlspecialchars($v['student_id']??'');?>
+                            <span style="color:<?php echo in_array($v['role'],['admin','super_admin'])?'#6366f1':'var(--success)';?>;">
+                                <?php echo in_array($v['role'],['admin','super_admin'])?'👤 admin':'✓ '.htmlspecialchars($v['student_id']??'');?>
                             </span>
                         <?php else:?>
                             <span class="text-muted">Guest</span>
