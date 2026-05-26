@@ -135,7 +135,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <form method="POST" style="display:flex;gap:.3rem;align-items:center;">
                             <?php echo csrf_input();?>
                             <input type="hidden" name="eq_id" value="<?php echo $eq['id'];?>">
-                            <select name="status" class="form-control" style="width:auto;padding:.4rem .8rem;font-size:.82rem;" onchange="if(confirm('เปลี่ยนสถานะ?'))this.form.submit()">
+                            <select name="status" class="form-control" style="width:auto;padding:.4rem 2.2rem .4rem .8rem;font-size:.82rem;" onchange="if(confirm('เปลี่ยนสถานะ?'))this.form.submit()">
                                 <option value="available" <?php if($eq['status']=='available')echo'selected';?>>พร้อมใช้งาน</option>
                                 <option value="borrowed" <?php if($eq['status']=='borrowed')echo'selected';?>>กำลังถูกยืม</option>
                                 <option value="maintenance" <?php if($eq['status']=='maintenance')echo'selected';?>>ซ่อมบำรุง</option>
