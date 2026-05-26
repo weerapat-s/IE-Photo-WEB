@@ -56,7 +56,7 @@ $base_url = '../';
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div style="max-width:550px;margin:0 auto;">
+<div class="page-container-sm">
     <div class="page-header">
         <h2>ข้อมูลส่วนตัว</h2>
         <p>จัดการข้อมูลและรูปโปรไฟล์ของคุณ</p>

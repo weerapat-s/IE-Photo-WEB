@@ -83,9 +83,7 @@ $page_title = 'จัดการสมาชิก';
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="bg-orbs"></div>
-<div class="main-content animate-in">
-    <div class="page-header">
+<div class="page-header">
         <h2><i class="ph-bold ph-users"></i> จัดการสมาชิก</h2>
         <p>เปลี่ยนบทบาท · รีเซ็ตรหัสผ่าน · ลบบัญชี</p>
     </div>
@@ -99,6 +97,7 @@ require_once __DIR__ . '/../includes/header.php';
 
     <!-- ═══ Desktop Table ═══════════════════════════════════════════════════ -->
     <div class="glass-card desktop-table">
+        <p class="table-scroll-hint"><i class="ph ph-arrow-left"></i> เลื่อนดูข้อมูลเพิ่มเติม <i class="ph ph-arrow-right"></i></p>
         <div class="table-responsive">
             <table class="glass-table">
                 <thead>
@@ -221,10 +220,9 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <?php endforeach; ?>
     </div>
-</div>
 
 <!-- ═══ Modal: รีเซ็ตรหัสผ่าน ══════════════════════════════════════════════ -->
-<div id="modal-reset" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:1rem;">
+<div id="modal-reset" class="modal-legacy" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle">
     <div class="glass-card" style="max-width:420px;width:100%;position:relative;">
         <button onclick="closeModal('modal-reset')"
                 style="position:absolute;top:.75rem;right:.75rem;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;">
@@ -275,7 +273,7 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- ═══ Modal: ยืนยันลบบัญชี ═══════════════════════════════════════════════ -->
-<div id="modal-delete" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:1rem;">
+<div id="modal-delete" class="modal-legacy" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
     <div class="glass-card" style="max-width:400px;width:100%;text-align:center;position:relative;">
         <button onclick="closeModal('modal-delete')"
                 style="position:absolute;top:.75rem;right:.75rem;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;">
@@ -320,7 +318,7 @@ function openDeleteModal(userId, label) {
 
 function showModal(id) {
     var m = document.getElementById(id);
-    m.style.display = 'flex';
+    m.classList.add('open');
     document.body.style.overflow = 'hidden';
     // ปิดเมื่อกด backdrop
     m.addEventListener('click', function onBg(e) {
@@ -329,7 +327,7 @@ function showModal(id) {
 }
 
 function closeModal(id) {
-    document.getElementById(id).style.display = 'none';
+    document.getElementById(id).classList.remove('open');
     document.body.style.overflow = '';
 }
 

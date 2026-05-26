@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ie-photo-web
+    runtime: docker
+    plan: free
+    healthCheckPath: /guest/studio_booking.php
+    envVars:
+      - key: DB_HOST
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: DB_PORT
+        value: "3306"

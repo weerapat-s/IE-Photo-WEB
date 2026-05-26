@@ -73,23 +73,26 @@ require_once __DIR__ . '/../includes/header.php';
     <p>จัดการข้อมูลกล้อง เลนส์ และอุปกรณ์ทั้งหมด</p>
 </div>
 
-<div class="stats-grid" style="margin-bottom:1.5rem;">
+<div class="stats-grid stats-grid-3" style="margin-bottom:1.5rem;">
     <div class="stat-card animate-in" style="border-left:4px solid var(--success);">
-        <div class="stat-value" style="color:var(--success);font-size:1.5rem;"><?php echo $available; ?></div>
+        <div class="stat-icon" style="background:var(--success-bg);color:var(--success);"><i class="ph-bold ph-check-circle"></i></div>
+        <div class="stat-value" style="color:var(--success);"><?php echo $available; ?></div>
         <div class="stat-label">พร้อมใช้งาน</div>
     </div>
     <div class="stat-card animate-in" style="border-left:4px solid var(--primary);">
-        <div class="stat-value" style="color:var(--primary);font-size:1.5rem;"><?php echo $borrowed; ?></div>
+        <div class="stat-icon" style="background:rgba(242,83,28,.1);color:var(--primary);"><i class="ph-bold ph-camera"></i></div>
+        <div class="stat-value" style="color:var(--primary);"><?php echo $borrowed; ?></div>
         <div class="stat-label">กำลังถูกยืม</div>
     </div>
     <div class="stat-card animate-in" style="border-left:4px solid var(--danger);">
-        <div class="stat-value" style="color:var(--danger);font-size:1.5rem;"><?php echo $maintenance; ?></div>
+        <div class="stat-icon" style="background:var(--danger-bg);color:var(--danger);"><i class="ph-bold ph-wrench"></i></div>
+        <div class="stat-value" style="color:var(--danger);"><?php echo $maintenance; ?></div>
         <div class="stat-label">ซ่อมบำรุง</div>
     </div>
 </div>
 
-<div class="flex-between" style="margin-bottom:1rem;">
-    <h3 style="font-size:1.1rem;margin:0;">รายการอุปกรณ์ (<?php echo count($equipments); ?>)</h3>
+<div class="flex-between" style="margin-bottom:1rem;gap:.6rem;">
+    <h3 style="font-size:1.1rem;margin:0;flex:1;">รายการอุปกรณ์ (<?php echo count($equipments); ?>)</h3>
     <button class="btn btn-primary btn-sm" onclick="toggleAddForm()"><i class="ph-bold ph-plus"></i> เพิ่มอุปกรณ์</button>
 </div>
 
@@ -99,18 +102,19 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Add Form -->
 <div id="addForm" class="glass-card" style="display:none;margin-bottom:1.5rem;border:2px solid var(--primary);">
     <h3 style="font-size:1rem;margin-bottom:1rem;"><i class="ph-bold ph-plus-circle"></i> เพิ่มอุปกรณ์ใหม่</h3>
-    <form method="POST" class="form-row" style="align-items:flex-end;">
-        <?php echo csrf_input(); ?>
+    <form method="POST" class="form-row add-form-row">
+        <?php echo csrf_input();?>
         <div class="form-group" style="flex:2;margin-bottom:0;"><label>ชื่ออุปกรณ์</label><input type="text" name="name" class="form-control" required placeholder="เช่น Sony A7IV"></div>
         <div class="form-group" style="flex:1;margin-bottom:0;"><label>ประเภท</label>
             <select name="type" class="form-control" required><option value="camera">📷 กล้อง</option><option value="lens">🔍 เลนส์</option><option value="accessory">📦 อุปกรณ์เสริม</option></select>
         </div>
-        <div style="display:flex;gap:.5rem;"><button type="submit" name="add_equipment" class="btn btn-success btn-sm">บันทึก</button><button type="button" class="btn btn-outline btn-sm" onclick="toggleAddForm()">ยกเลิก</button></div>
+        <div class="add-form-actions" style="align-self:flex-end;"><button type="submit" name="add_equipment" class="btn btn-success btn-sm">บันทึก</button><button type="button" class="btn btn-outline btn-sm" onclick="toggleAddForm()">ยกเลิก</button></div>
     </form>
 </div>
 
 <!-- Desktop Table -->
 <div class="glass-card desktop-table" style="padding:1.2rem;">
+    <p class="table-scroll-hint"><i class="ph ph-arrow-left"></i> เลื่อนดูข้อมูลเพิ่มเติม <i class="ph ph-arrow-right"></i></p>
     <div class="table-responsive">
         <table class="glass-table">
             <thead><tr><th>ID</th><th>ประเภท</th><th>ชื่อ</th><th>สถานะ</th><th>เปลี่ยนสถานะ</th><th>จัดการ</th></tr></thead>
@@ -129,7 +133,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <td><span class="badge <?php echo $badgeClass;?>">● <?php echo $label;?></span></td>
                     <td>
                         <form method="POST" style="display:flex;gap:.3rem;align-items:center;">
-                            <?php echo csrf_input(); ?>
+                            <?php echo csrf_input();?>
                             <input type="hidden" name="eq_id" value="<?php echo $eq['id'];?>">
                             <select name="status" class="form-control" style="width:auto;padding:.4rem .8rem;font-size:.82rem;" onchange="if(confirm('เปลี่ยนสถานะ?'))this.form.submit()">
                                 <option value="available" <?php if($eq['status']=='available')echo'selected';?>>พร้อมใช้งาน</option>

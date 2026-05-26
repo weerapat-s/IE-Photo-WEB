@@ -1,0 +1,25 @@
+# fly.toml — IE-Photo Web app on Fly.io
+app = "ie-photo-web"
+primary_region = "sin"  # Singapore — ใกล้ Thailand ที่สุด
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 25
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

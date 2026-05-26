@@ -27,7 +27,7 @@ try { $pdo->query("SELECT 1 FROM tasks LIMIT 1"); } catch (Exception $e) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     if (!csrf_verify()) {
         $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
-    }
+    } else {
     $task_id = intval($_POST['task_id'] ?? 0);
     $status = $_POST['status'] ?? '';
     if ($task_id > 0 && in_array($status, ['pending', 'in_progress', 'completed'])) {
@@ -36,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
             $success = 'อัปเดตสถานะงานเรียบร้อย';
         } else { $error = 'อัปเดตไม่สำเร็จ'; }
     }
+    } // end csrf else
 }
 
 // Fetch my tasks
@@ -66,7 +67,7 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Stats -->
-<div class="stats-grid" style="margin-bottom:1.5rem;">
+<div class="stats-grid stats-grid-3" style="margin-bottom:1.5rem;">
     <div class="stat-card animate-in" style="border-left:4px solid var(--warning);">
         <div class="stat-value" style="color:var(--warning);font-size:1.5rem;"><?php echo $pendingCount; ?></div>
         <div class="stat-label">รอดำเนินการ</div>
@@ -103,18 +104,18 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
             <h4 style="font-size:1.05rem;margin-bottom:.3rem;"><?php echo htmlspecialchars($t['title']);?></h4>
             <?php if($t['description']):?><p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:.6rem;"><?php echo nl2br(htmlspecialchars($t['description']));?></p><?php endif;?>
-            <div style="font-size:.82rem;color:var(--text-muted);margin-bottom:.8rem;">
+            <div class="task-meta" style="font-size:.82rem;color:var(--text-muted);margin-bottom:.8rem;">
                 <span><i class="ph ph-user"></i> จาก: <?php echo htmlspecialchars($t['creator_name']);?></span>
                 <?php if($t['due_date']):?>
-                    <span style="margin-left:1rem;<?php echo $isOverdue?'color:var(--danger);font-weight:600;':'';?>">
+                    <span style="<?php echo $isOverdue?'color:var(--danger);font-weight:600;':'';?>">
                         <i class="ph ph-calendar"></i> กำหนด: <?php echo date('d M Y, H:i',strtotime($t['due_date']));?>
                         <?php echo $isOverdue?' ⚠️ เลยกำหนด!':'';?>
                     </span>
                 <?php endif;?>
             </div>
             <?php if(!in_array($t['status'],['completed','cancelled'])):?>
-            <form method="POST" style="display:flex;gap:.5rem;">
-                <?php echo csrf_input(); ?>
+            <form method="POST" class="task-actions" style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                <?php echo csrf_input();?>
                 <input type="hidden" name="task_id" value="<?php echo $t['id'];?>">
                 <input type="hidden" name="update_status" value="1">
                 <?php if($t['status']==='pending'):?>

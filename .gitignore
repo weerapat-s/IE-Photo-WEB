@@ -4,3 +4,7 @@ package-lock.json
 uploads/
 *.log
 .env
+# DB migration scripts (contain credentials)
+railway_backup.sql
+import_db.py
+dump_db.py

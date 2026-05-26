@@ -1,5 +1,6 @@
 <?php
 // index.php — Entry point
+// ใช้ @ ป้องกัน session warning ใน container แล้ว redirect ตาม login state
 @session_start();
 
 $loc = '/guest/studio_booking.php';

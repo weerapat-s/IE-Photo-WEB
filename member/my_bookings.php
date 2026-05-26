@@ -15,11 +15,11 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_verify()) {
         $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
-    }
+    } else {
     $booking_id = intval($_POST['booking_id'] ?? 0);
     $action = $_POST['action'] ?? '';
 
-    if (!$error && $booking_id > 0 && $action === 'cancel') {
+    if ($booking_id > 0 && $action === 'cancel') {
         $checkStmt = $pdo->prepare("SELECT id FROM bookings WHERE id = ? AND user_id = ? AND status = 'pending'");
         $checkStmt->execute([$booking_id, $user_id]);
         if ($checkStmt->fetch()) {
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success = "ยกเลิกการจองเรียบร้อยแล้ว";
             } catch (Exception $e) { $pdo->rollBack(); $error = "เกิดข้อผิดพลาด กรุณาลองใหม่"; }
         } else { $error = "ไม่พบรายการหรือไม่สามารถยกเลิกได้"; }
-    } elseif (!$error && $booking_id > 0 && $action === 'return') {
+    } elseif ($booking_id > 0 && $action === 'return') {
         // Member returns equipment with photo evidence
         $return_image = null;
         if (isset($_FILES['return_image']) && $_FILES['return_image']['error'] === UPLOAD_ERR_OK) {
@@ -54,31 +54,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        /* FIX: skip DB when upload pre-check failed (e.g. file too large) */
-        if (empty($error)):
-        try {
-            $pdo->beginTransaction();
-            /* FIX-TOCTOU: SELECT ... FOR UPDATE ล็อก row ก่อนอ่าน ป้องกัน race condition */
-            /* FIX-DOUBLE-SUBMIT: เฉพาะ status='approved' — ไม่รับ pending_return ซ้ำ (ป้องกันสลับหลักฐาน) */
-            $checkStmt = $pdo->prepare("SELECT id FROM bookings WHERE id = ? AND user_id = ? AND booking_type = 'equipment' AND status = 'approved' FOR UPDATE");
-            $checkStmt->execute([$booking_id, $user_id]);
-            if ($checkStmt->fetch()) {
+        $checkStmt = $pdo->prepare("SELECT id FROM bookings WHERE id = ? AND user_id = ? AND booking_type = 'equipment' AND status IN ('approved','pending_return')");
+        $checkStmt->execute([$booking_id, $user_id]);
+        if ($checkStmt->fetch()) {
+            try {
+                $pdo->beginTransaction();
                 if ($return_image) {
                     $pdo->prepare("UPDATE bookings SET status = 'pending_return', return_image_path = ? WHERE id = ?")->execute([$return_image, $booking_id]);
                 } else {
                     $pdo->prepare("UPDATE bookings SET status = 'pending_return' WHERE id = ?")->execute([$booking_id]);
                 }
-                $feedReturnMsg = $return_image ? "ส่งคืนอุปกรณ์ 📦 พร้อมหลักฐาน — รอ admin ตรวจสอบ" : "ส่งคืนอุปกรณ์ 📦 (ไม่มีรูป) — รอ admin ตรวจสอบ";
-                $pdo->prepare("INSERT INTO feeds (booking_id, message) VALUES (?, ?)")->execute([$booking_id, $feedReturnMsg]);
+                $pdo->prepare("INSERT INTO feeds (booking_id, message) VALUES (?, ?)")->execute([$booking_id, "ส่งคืนอุปกรณ์ 📦 พร้อมหลักฐาน — รอ admin ตรวจสอบ"]);
                 $pdo->commit();
                 $success = "ส่งคืนเรียบร้อย! รอผู้ดูแลระบบตรวจสอบ";
-            } else {
-                $pdo->rollBack();
-                $error = "ไม่พบรายการนี้หรือไม่สามารถคืนได้";
-            }
-        } catch (Exception $e) { $pdo->rollBack(); $error = "เกิดข้อผิดพลาด กรุณาลองใหม่"; }
-        endif; // empty($error) guard
+            } catch (Exception $e) { $pdo->rollBack(); $error = "เกิดข้อผิดพลาด กรุณาลองใหม่"; }
+        } else { $error = "ไม่พบรายการนี้หรือไม่สามารถคืนได้"; }
     }
+    } // end csrf else
 }
 
 $query = "
@@ -137,7 +129,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <td><span class="badge <?php echo $badgeClass;?>"><?php echo $label;?></span></td>
                         <td>
                             <?php if($b['status']==='pending'):?>
-                                <form method="POST"><input type="hidden" name="booking_id" value="<?php echo $b['id'];?>"><input type="hidden" name="action" value="cancel"><?php echo csrf_input();?>
+                                <form method="POST"><?php echo csrf_input();?><input type="hidden" name="booking_id" value="<?php echo $b['id'];?>"><input type="hidden" name="action" value="cancel">
                                     <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);padding:.3rem .5rem;"><i class="ph-bold ph-x-circle"></i></button></form>
                             <?php elseif($b['status']==='approved' && $b['booking_type']==='equipment'):?>
                                 <button class="btn btn-outline btn-sm" style="color:var(--info);border-color:var(--info);" onclick="openReturnModal(<?php echo $b['id'];?>)"><i class="ph-bold ph-camera"></i> คืน</button>
@@ -170,7 +162,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="mc-row"><span class="mc-label">สิ้นสุด</span><span style="color:var(--danger);font-size:.85rem;"><?php echo date('d M Y, H:i',strtotime($b['end_datetime']));?></span></div>
                 <?php if($b['status']==='pending'):?>
                 <div class="mc-actions">
-                    <form method="POST" style="flex:1"><input type="hidden" name="booking_id" value="<?php echo $b['id'];?>"><input type="hidden" name="action" value="cancel"><?php echo csrf_input();?>
+                    <form method="POST" style="flex:1"><?php echo csrf_input();?><input type="hidden" name="booking_id" value="<?php echo $b['id'];?>"><input type="hidden" name="action" value="cancel">
                         <button class="btn btn-outline btn-sm w-100" style="color:var(--danger);border-color:var(--danger);"><i class="ph-bold ph-x-circle"></i> ยกเลิก</button></form>
                 </div>
                 <?php elseif($b['status']==='approved' && $b['booking_type']==='equipment'):?>
@@ -191,7 +183,7 @@ require_once __DIR__ . '/../includes/header.php';
         <h3 id="returnModalTitle" style="font-size:1.1rem;margin-bottom:1rem;"><i class="ph-bold ph-camera"></i> คืนอุปกรณ์</h3>
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:1rem;">ถ่ายรูปอุปกรณ์เพื่อยืนยันสภาพก่อนส่งคืน</p>
         <form method="POST" enctype="multipart/form-data">
-            <?php echo csrf_input(); ?>
+            <?php echo csrf_input();?>
             <input type="hidden" name="booking_id" id="return_booking_id" value="">
             <input type="hidden" name="action" value="return">
             <div class="form-group">

@@ -28,41 +28,38 @@ try {
 } catch (Exception $e) { /* ignore */ }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // ── CSRF ─────────────────────────────────────────────────────────────────
     if (!csrf_verify()) {
         $error = 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
-    }
-
+    } else {
     $booking_id = intval($_POST['booking_id'] ?? 0);
     $action = $_POST['action'] ?? '';
 
-    if (empty($error) && $booking_id > 0 && in_array($action, ['approve', 'reject', 'return'])) {
+    if ($booking_id > 0 && in_array($action, ['approve', 'reject', 'return'])) {
         $status = match($action) { 'approve'=>'approved', 'reject'=>'rejected', 'return'=>'returned', default=>$action };
 
         // Handle return image upload — ตรวจสอบทั้ง extension และ MIME type จริง
         $return_image = null;
         if ($action === 'return' && isset($_FILES['return_image']) && $_FILES['return_image']['error'] === UPLOAD_ERR_OK) {
+            /* BUG-004: ตรวจขนาดไฟล์ (สูงสุด 8 MB) */
             if ($_FILES['return_image']['size'] > 8 * 1024 * 1024) {
-                /* FIX: ใช้ $error แทน throw เพื่อไม่ให้ได้ 500 page */
-                $error = 'ไฟล์ใหญ่เกิน 8 MB';
-            } else {
-                $ext = strtolower(pathinfo($_FILES['return_image']['name'], PATHINFO_EXTENSION));
-                $finfo = finfo_open(FILEINFO_MIME_TYPE);
-                $mime  = finfo_file($finfo, $_FILES['return_image']['tmp_name']);
-                finfo_close($finfo);
-                $allowedMimes = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
-                if (in_array($ext, ['jpg','jpeg','png','webp']) && isset($allowedMimes[$mime])) {
-                    $return_image = 'return_' . $booking_id . '_' . time() . '.' . $allowedMimes[$mime];
-                    $upload_dir = __DIR__ . '/../uploads/returns/';
-                    if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
-                    if (!move_uploaded_file($_FILES['return_image']['tmp_name'], $upload_dir . $return_image)) {
-                        $return_image = null;
-                    }
+                throw new Exception('ไฟล์ใหญ่เกิน 8 MB');
+            }
+            $ext = strtolower(pathinfo($_FILES['return_image']['name'], PATHINFO_EXTENSION));
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime  = finfo_file($finfo, $_FILES['return_image']['tmp_name']);
+            finfo_close($finfo);
+            $allowedMimes = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
+            if (in_array($ext, ['jpg','jpeg','png','webp']) && isset($allowedMimes[$mime])) {
+                $return_image = 'return_' . $booking_id . '_' . time() . '.' . $allowedMimes[$mime];
+                $upload_dir = __DIR__ . '/../uploads/returns/';
+                if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+                /* BUG-005: ตรวจ return value ของ move_uploaded_file */
+                if (!move_uploaded_file($_FILES['return_image']['tmp_name'], $upload_dir . $return_image)) {
+                    $return_image = null; // อัปโหลดล้มเหลว — ไม่ save path ลง DB
                 }
             }
         }
 
-        if (empty($error)):
         $pdo->beginTransaction();
         try {
             // Update booking status
@@ -134,8 +131,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->rollBack();
             $error = "ดำเนินการไม่สำเร็จ: " . $e->getMessage();
         }
-        endif; // empty($error)
     }
+    } // end csrf else
 }
 
 // Fetch bookings
@@ -160,7 +157,6 @@ $query = "
     LEFT JOIN users r ON b.responsible_user_id = r.id
     {$where}
     ORDER BY b.created_at DESC
-    LIMIT 300
 ";
 $bookings = $pdo->query($query)->fetchAll();
 
@@ -293,7 +289,7 @@ require_once __DIR__ . '/../includes/header.php';
         <button onclick="closeReturnModal()" aria-label="ปิด" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted);min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;"><i class="ph-bold ph-x"></i></button>
         <h3 id="adminReturnTitle" style="font-size:1.1rem;margin-bottom:1rem;"><i class="ph-bold ph-camera"></i> คืนอุปกรณ์พร้อมหลักฐาน</h3>
         <form method="POST" enctype="multipart/form-data" id="returnForm">
-            <?php echo csrf_input(); ?>
+            <?php echo csrf_input();?>
             <input type="hidden" name="booking_id" id="return_booking_id" value="">
             <input type="hidden" name="action" value="return">
             <div class="form-group">

@@ -1,0 +1,20 @@
+{
+  "deploy": {
+    "phpVersion": "8.2",
+    "webRoot": "/",
+    "rewriteRules": [
+      {
+        "from": "^/$",
+        "to": "/index.php"
+      }
+    ]
+  },
+  "extensions": [
+    "pdo_mysql",
+    "mysqli",
+    "mbstring",
+    "gd",
+    "fileinfo",
+    "curl"
+  ]
+}
