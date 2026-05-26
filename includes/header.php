@@ -98,7 +98,6 @@ function isActive($page) {
                         <a href="<?php echo $base_url; ?>member/contact_list.php" class="<?php echo isActive('contact_list');?>"><i class="ph ph-address-book"></i> สมาชิก</a>
                         <a href="<?php echo $base_url; ?>admin/users.php" class="<?php echo isActive('users');?>"><i class="ph ph-users"></i> จัดการสมาชิก</a>
                         <a href="<?php echo $base_url; ?>admin/contact_manage.php" class="<?php echo isActive('contact_manage');?>"><i class="ph ph-users-three"></i> จัดการระบบ</a>
-                        <a href="<?php echo $base_url; ?>admin/visitors.php" class="<?php echo isActive('visitors');?>"><i class="ph ph-eye"></i> ผู้เข้าชม</a>
 
                     <?php else: ?>
                     <!-- ══ MEMBER nav ═══════════════════════════════════════════ -->
