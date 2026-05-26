@@ -59,6 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 /* BUG-005: ตรวจ return value ของ move_uploaded_file */
                 if (!move_uploaded_file($_FILES['return_image']['tmp_name'], $upload_dir . $return_image)) {
                     $return_image = null; // อัปโหลดล้มเหลว — ไม่ save path ลง DB
+                } else {
+                    save_upload_to_db($pdo, 'returns/' . $return_image, $upload_dir . $return_image, $mime);
                 }
             }
             } // end else (size ok)

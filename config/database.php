@@ -436,6 +436,50 @@ if (!function_exists('ip_geo_ensure_table')) {
     }
 }
 
+// ─── Upload File Storage in DB ───────────────────────────────────────────────
+// CleverCloud filesystem is ephemeral — uploaded files disappear after each deploy.
+// Solution: store file bytes in MySQL (LONGBLOB) and serve via uploads/serve.php.
+if (!function_exists('upload_ensure_table')) {
+
+    /** สร้างตาราง uploaded_files ถ้ายังไม่มี */
+    function upload_ensure_table(PDO $pdo): void {
+        static $done = false;
+        if ($done) return;
+        $done = true;
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS uploaded_files (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                filepath    VARCHAR(300) NOT NULL,
+                mime_type   VARCHAR(100) NOT NULL DEFAULT 'application/octet-stream',
+                file_data   LONGBLOB     NOT NULL,
+                created_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_filepath (filepath)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (Exception $e) { error_log('upload_ensure_table: ' . $e->getMessage()); }
+    }
+
+    /**
+     * บันทึกไฟล์ที่อัปโหลดลง MySQL
+     * เรียกหลัง move_uploaded_file() สำเร็จ
+     *
+     * @param PDO    $pdo       DB connection
+     * @param string $filepath  relative path เช่น "booking_forms/file.jpg"
+     * @param string $localPath absolute path ของไฟล์ที่ save บน disk แล้ว
+     * @param string $mime      MIME type เช่น "image/jpeg"
+     */
+    function save_upload_to_db(PDO $pdo, string $filepath, string $localPath, string $mime): void {
+        try {
+            upload_ensure_table($pdo);
+            $data = file_get_contents($localPath);
+            if ($data === false) return;
+            $pdo->prepare("INSERT INTO uploaded_files (filepath, mime_type, file_data)
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE mime_type=VALUES(mime_type), file_data=VALUES(file_data)")
+                ->execute([$filepath, $mime, $data]);
+        } catch (Exception $e) { error_log('save_upload_to_db: ' . $e->getMessage()); }
+    }
+}
+
 // ─── Role helpers ────────────────────────────────────────────────────────────
 if (!function_exists('is_admin')) {
     /** คืน true ถ้า user ปัจจุบันเป็น admin หรือ super_admin */

@@ -1,0 +1,25 @@
+# uploads/.htaccess
+# ─────────────────────────────────────────────────────────────────────────────
+# CleverCloud: uploaded files get wiped on each deploy (ephemeral filesystem).
+# When a file is NOT on disk, rewrite the request to serve.php which reads
+# the file bytes from MySQL.
+#
+# On local dev: files exist on disk → served directly by Apache (no rewrite).
+# On production: files missing → serve.php fetches from uploaded_files table.
+# ─────────────────────────────────────────────────────────────────────────────
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /uploads/
+
+    # Only apply rewrite if the physical file does NOT exist
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^(.+)$ serve.php?f=$1 [L,QSA]
+</IfModule>
+
+# Block direct access to the serve script itself (must use URL pattern above)
+# but allow it to be called by the rewrite rule (internal redirect)
+# No extra block needed — serve.php validates input itself.
+
+# Prevent directory listing
+Options -Indexes

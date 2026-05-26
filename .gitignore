@@ -1,7 +1,9 @@
 node_modules/
 package.json
 package-lock.json
-uploads/
+uploads/*
+!uploads/serve.php
+!uploads/.htaccess
 *.log
 .env
 # DB migration scripts (contain credentials)

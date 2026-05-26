@@ -49,6 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
                     if (!move_uploaded_file($_FILES['return_image']['tmp_name'], $upload_dir . $return_image)) {
                         $return_image = null;
+                    } else {
+                        save_upload_to_db($pdo, 'returns/' . $return_image, $upload_dir . $return_image, $mime);
                     }
                 }
             }

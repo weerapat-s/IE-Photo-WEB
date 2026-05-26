@@ -38,8 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $new_name = $user_id . '_' . time() . '.' . $allowedMimes[$mime];
                 $upload_dir = __DIR__ . '/../uploads/profiles/';
                 if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
-                if (move_uploaded_file($tmp_name, $upload_dir . $new_name)) { $profile_image = $new_name; }
-                else { $error = 'อัปโหลดรูปไม่สำเร็จ'; }
+                if (move_uploaded_file($tmp_name, $upload_dir . $new_name)) {
+                    $profile_image = $new_name;
+                    save_upload_to_db($pdo, 'profiles/' . $new_name, $upload_dir . $new_name, $mime);
+                } else { $error = 'อัปโหลดรูปไม่สำเร็จ'; }
             } else { $error = 'รูปแบบไฟล์ไม่รองรับ (รองรับ JPG, PNG, GIF, WebP)'; }
         }
     }

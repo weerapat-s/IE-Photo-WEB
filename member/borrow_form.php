@@ -65,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
                     if (move_uploaded_file($tmp_name, $upload_dir . $fname)) {
                         $form_image = $fname;
+                        save_upload_to_db($pdo, 'booking_forms/' . $fname, $upload_dir . $fname, $mime);
                     } else {
                         $error = 'อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองใหม่';
                     }
