@@ -1488,3 +1488,26 @@ body:not(:has(.bottom-nav[style*="block"])){
 .is-admin .nav-overlay.active{
     opacity:1;visibility:visible;pointer-events:auto;
 }
+
+/* ── Super Admin — visual distinction ──────────────────────────────────────── */
+/* role badge label inside the slide panel */
+.nav-role-badge {
+    font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    border-bottom-width:1px;border-bottom-style:solid;
+    user-select:none;pointer-events:none;
+}
+
+/* Super Admin: purple accent for active/hover links */
+.is-super-admin .nav-links > a:hover,
+.is-super-admin .nav-links > a.active {
+    background:rgba(124,58,237,.08);
+    color:#7c3aed;
+}
+.is-super-admin .nav-links > a:hover i,
+.is-super-admin .nav-links > a.active i { color:#7c3aed; }
+
+/* ip_manager link — highlighted as privileged */
+.is-super-admin .nav-links > a[href*="ip_manager"] {
+    border-left:3px solid #7c3aed;
+    padding-left:calc(1rem - 3px);
+}

@@ -30,7 +30,15 @@ function isActive($page) {
     <link rel="stylesheet" href="<?php echo $base_url; ?>assets/css/glassmorphism.css">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
-<body<?php if(isset($_SESSION['role']) && in_array($_SESSION['role'],['admin','super_admin'])) echo ' class="is-admin"'; ?>>
+<?php
+    $__role = $_SESSION['role'] ?? '';
+    $__bodyClass = match($__role) {
+        'super_admin' => ' class="is-admin is-super-admin"',
+        'admin'       => ' class="is-admin"',
+        default       => '',
+    };
+?>
+<body<?php echo $__bodyClass; ?>>
     <div class="bg-orbs"></div>
 
     <!-- Top Navbar -->
@@ -39,14 +47,17 @@ function isActive($page) {
             <a href="<?php echo $base_url; ?>auth/login.php" class="nav-brand">
                 <i class="ph-bold ph-camera" style="margin-right:3px"></i> IE-PHOTO
             </a>
-            <?php if(isset($_SESSION['role']) && in_array($_SESSION['role'],['admin','super_admin'])): ?>
+
+            <?php if($__role === 'admin' || $__role === 'super_admin'): ?>
             <button class="mobile-toggle" id="mobile-toggle-btn" aria-label="Menu" style="margin-left:auto;">
                 <i class="ph-bold ph-list"></i>
             </button>
             <?php endif; ?>
+
             <div class="nav-links" id="nav-links">
-                <?php if(isset($_SESSION['role']) && in_array($_SESSION['role'],['admin','super_admin'])): ?>
-                <!-- ปุ่ม ✕ ปิด panel — ติดมุมขวาบนของ slide panel -->
+
+                <?php if($__role === 'admin' || $__role === 'super_admin'): ?>
+                <!-- ปุ่ม ✕ ปิด panel -->
                 <button id="nav-close-btn" aria-label="ปิดเมนู"
                     style="position:absolute;top:14px;right:14px;background:none;border:none;
                            font-size:1.4rem;cursor:pointer;color:var(--text-muted);
@@ -55,8 +66,12 @@ function isActive($page) {
                     <i class="ph-bold ph-x"></i>
                 </button>
                 <?php endif; ?>
+
                 <?php if(isset($_SESSION['user_id'])): ?>
-                    <?php if(in_array($_SESSION['role'],['admin','super_admin'])): ?>
+
+                    <?php if($__role === 'super_admin'): ?>
+                    <!-- ══ SUPER ADMIN nav ══════════════════════════════════════ -->
+                    <div class="nav-role-badge" style="padding:.5rem 1rem .25rem;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a78bfa;border-bottom:1px solid rgba(167,139,250,.2);margin-bottom:.25rem;">⭐ Super Admin</div>
                         <a href="<?php echo $base_url; ?>admin/dashboard.php" class="<?php echo isActive('dashboard');?>"><i class="ph ph-squares-four"></i> แดชบอร์ด</a>
                         <a href="<?php echo $base_url; ?>admin/bookings.php" class="<?php echo isActive('bookings');?>"><i class="ph ph-list-checks"></i> รายการจอง</a>
                         <a href="<?php echo $base_url; ?>member/borrow_form.php" class="<?php echo isActive('borrow_form');?>"><i class="ph ph-hand-grabbing"></i> ยืมอุปกรณ์</a>
@@ -68,10 +83,25 @@ function isActive($page) {
                         <a href="<?php echo $base_url; ?>admin/users.php" class="<?php echo isActive('users');?>"><i class="ph ph-users"></i> จัดการสมาชิก</a>
                         <a href="<?php echo $base_url; ?>admin/contact_manage.php" class="<?php echo isActive('contact_manage');?>"><i class="ph ph-users-three"></i> จัดการระบบ</a>
                         <a href="<?php echo $base_url; ?>admin/visitors.php" class="<?php echo isActive('visitors');?>"><i class="ph ph-eye"></i> ผู้เข้าชม</a>
-                        <?php if(is_super_admin()): ?>
                         <a href="<?php echo $base_url; ?>admin/ip_manager.php" class="<?php echo isActive('ip_manager');?>"><i class="ph ph-shield-warning"></i> จัดการ IP</a>
-                        <?php endif; ?>
+
+                    <?php elseif($__role === 'admin'): ?>
+                    <!-- ══ ADMIN nav ════════════════════════════════════════════ -->
+                    <div class="nav-role-badge" style="padding:.5rem 1rem .25rem;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--success);border-bottom:1px solid rgba(16,185,129,.2);margin-bottom:.25rem;">🛡 Admin</div>
+                        <a href="<?php echo $base_url; ?>admin/dashboard.php" class="<?php echo isActive('dashboard');?>"><i class="ph ph-squares-four"></i> แดชบอร์ด</a>
+                        <a href="<?php echo $base_url; ?>admin/bookings.php" class="<?php echo isActive('bookings');?>"><i class="ph ph-list-checks"></i> รายการจอง</a>
+                        <a href="<?php echo $base_url; ?>member/borrow_form.php" class="<?php echo isActive('borrow_form');?>"><i class="ph ph-hand-grabbing"></i> ยืมอุปกรณ์</a>
+                        <a href="<?php echo $base_url; ?>guest/studio_booking.php" class="<?php echo isActive('studio_booking');?>"><i class="ph ph-video-camera"></i> จองสตูดิโอ</a>
+                        <a href="<?php echo $base_url; ?>admin/inventory.php" class="<?php echo isActive('inventory');?>"><i class="ph ph-package"></i> คลังอุปกรณ์</a>
+                        <a href="<?php echo $base_url; ?>admin/tasks.php" class="<?php echo isActive('tasks');?>"><i class="ph ph-kanban"></i> จัดการงาน</a>
+                        <a href="<?php echo $base_url; ?>member/calendar.php" class="<?php echo isActive('calendar');?>"><i class="ph ph-calendar"></i> ปฏิทิน</a>
+                        <a href="<?php echo $base_url; ?>member/contact_list.php" class="<?php echo isActive('contact_list');?>"><i class="ph ph-address-book"></i> สมาชิก</a>
+                        <a href="<?php echo $base_url; ?>admin/users.php" class="<?php echo isActive('users');?>"><i class="ph ph-users"></i> จัดการสมาชิก</a>
+                        <a href="<?php echo $base_url; ?>admin/contact_manage.php" class="<?php echo isActive('contact_manage');?>"><i class="ph ph-users-three"></i> จัดการระบบ</a>
+                        <a href="<?php echo $base_url; ?>admin/visitors.php" class="<?php echo isActive('visitors');?>"><i class="ph ph-eye"></i> ผู้เข้าชม</a>
+
                     <?php else: ?>
+                    <!-- ══ MEMBER nav ═══════════════════════════════════════════ -->
                         <a href="<?php echo $base_url; ?>member/feed.php" class="<?php echo isActive('feed');?>"><i class="ph ph-house"></i> ฟีด</a>
                         <a href="<?php echo $base_url; ?>member/borrow_form.php" class="<?php echo isActive('borrow_form');?>"><i class="ph ph-hand-grabbing"></i> ยืมอุปกรณ์</a>
                         <a href="<?php echo $base_url; ?>guest/studio_booking.php" class="<?php echo isActive('studio_booking');?>"><i class="ph ph-video-camera"></i> จองสตูดิโอ</a>
@@ -79,11 +109,13 @@ function isActive($page) {
                         <a href="<?php echo $base_url; ?>member/calendar.php" class="<?php echo isActive('calendar');?>"><i class="ph ph-calendar"></i> ปฏิทิน</a>
                         <a href="<?php echo $base_url; ?>member/contact_list.php" class="<?php echo isActive('contact_list');?>"><i class="ph ph-address-book"></i> สมาชิก</a>
                     <?php endif; ?>
+
                     <div class="nav-profile">
                         <a href="<?php echo $base_url; ?>member/my_bookings.php"><i class="ph-bold ph-list-dashes"></i> การจองของฉัน</a>
                         <a href="<?php echo $base_url; ?>member/profile.php"><i class="ph-bold ph-user-circle"></i> โปรไฟล์</a>
                         <a href="<?php echo $base_url; ?>auth/logout.php" class="btn btn-outline btn-sm">ออกจากระบบ</a>
                     </div>
+
                 <?php else: ?>
                     <a href="<?php echo $base_url; ?>guest/studio_booking.php"><i class="ph ph-calendar-plus"></i> จองสตูดิโอ</a>
                     <a href="<?php echo $base_url; ?>auth/login.php"><i class="ph ph-sign-in"></i> เข้าสู่ระบบ</a>
@@ -93,15 +125,15 @@ function isActive($page) {
         </div>
     </nav>
 
-    <!-- Nav Overlay (Admin mobile only) -->
-    <?php if(isset($_SESSION['role']) && in_array($_SESSION['role'],['admin','super_admin'])): ?>
+    <!-- Nav Overlay (Admin / Super Admin slide panel) -->
+    <?php if($__role === 'admin' || $__role === 'super_admin'): ?>
     <div class="nav-overlay" id="nav-overlay"></div>
     <?php endif; ?>
 
     <!-- Main Content -->
     <main class="main-content">
 
-    <?php if(isset($_SESSION['role']) && in_array($_SESSION['role'],['admin','super_admin'])): ?>
+    <?php if($__role === 'admin' || $__role === 'super_admin'): ?>
     <script>
     (function(){
         var btn    = document.getElementById('mobile-toggle-btn');
