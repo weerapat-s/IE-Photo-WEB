@@ -36,13 +36,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['password'])) {
-                login_reset(); // รีเซ็ตนับเมื่อ login สำเร็จ
                 // บล็อก login ถ้ายังไม่ยืนยันอีเมล (ยกเว้น admin)
                 if ($user['role'] !== 'admin' && !$user['email_verified']) {
                     $error = 'unverified';
                     $unverifiedEmail = $user['email'];
                 } else {
+                    login_reset(); // FIX: reset เฉพาะเมื่อ login สำเร็จจริง (หลัง email_verified ผ่าน)
                     session_regenerate_id(true);
+                    unset($_SESSION['csrf_token']); // FIX: rotate CSRF token หลัง session_regenerate_id
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['role']    = $user['role'];
                     $_SESSION['email']   = $user['email'];

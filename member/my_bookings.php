@@ -56,11 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         /* FIX: skip DB when upload pre-check failed (e.g. file too large) */
         if (empty($error)):
-        $checkStmt = $pdo->prepare("SELECT id FROM bookings WHERE id = ? AND user_id = ? AND booking_type = 'equipment' AND status IN ('approved','pending_return')");
-        $checkStmt->execute([$booking_id, $user_id]);
-        if ($checkStmt->fetch()) {
-            try {
-                $pdo->beginTransaction();
+        try {
+            $pdo->beginTransaction();
+            /* FIX-TOCTOU: SELECT ... FOR UPDATE ล็อก row ก่อนอ่าน ป้องกัน race condition */
+            /* FIX-DOUBLE-SUBMIT: เฉพาะ status='approved' — ไม่รับ pending_return ซ้ำ (ป้องกันสลับหลักฐาน) */
+            $checkStmt = $pdo->prepare("SELECT id FROM bookings WHERE id = ? AND user_id = ? AND booking_type = 'equipment' AND status = 'approved' FOR UPDATE");
+            $checkStmt->execute([$booking_id, $user_id]);
+            if ($checkStmt->fetch()) {
                 if ($return_image) {
                     $pdo->prepare("UPDATE bookings SET status = 'pending_return', return_image_path = ? WHERE id = ?")->execute([$return_image, $booking_id]);
                 } else {
@@ -70,8 +72,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare("INSERT INTO feeds (booking_id, message) VALUES (?, ?)")->execute([$booking_id, $feedReturnMsg]);
                 $pdo->commit();
                 $success = "ส่งคืนเรียบร้อย! รอผู้ดูแลระบบตรวจสอบ";
-            } catch (Exception $e) { $pdo->rollBack(); $error = "เกิดข้อผิดพลาด กรุณาลองใหม่"; }
-        } else { $error = "ไม่พบรายการนี้หรือไม่สามารถคืนได้"; }
+            } else {
+                $pdo->rollBack();
+                $error = "ไม่พบรายการนี้หรือไม่สามารถคืนได้";
+            }
+        } catch (Exception $e) { $pdo->rollBack(); $error = "เกิดข้อผิดพลาด กรุณาลองใหม่"; }
         endif; // empty($error) guard
     }
 }
