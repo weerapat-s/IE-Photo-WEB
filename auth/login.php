@@ -37,33 +37,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (str_contains($identifier, '@') && !str_ends_with(strtolower($identifier), '@kmitl.ac.th')) {
             $error = 'อนุญาตเฉพาะอีเมล @kmitl.ac.th เท่านั้น';
         } else {
-            $stmt = $pdo->prepare("SELECT id, email, password, role, profile_completed, email_verified FROM users WHERE student_id = ? OR email = ?");
+            $stmt = $pdo->prepare("SELECT id, email, password, role, profile_completed FROM users WHERE student_id = ? OR email = ?");
             $stmt->execute([$identifier, $identifier]);
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['password'])) {
-                // บล็อก login ถ้ายังไม่ยืนยันอีเมล (ยกเว้น admin)
-                if (!in_array($user['role'], ['admin', 'super_admin']) && !$user['email_verified']) {
-                    $error = 'unverified';
-                    $unverifiedEmail = $user['email'];
-                } else {
-                    login_reset();
-                    ip_record_success($pdo, $identifier); // ── log success
-                    session_regenerate_id(true);
-                    unset($_SESSION['csrf_token']); // rotate CSRF token
-                    $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['role']    = $user['role'];
-                    $_SESSION['email']   = $user['email'];
+                login_reset();
+                ip_record_success($pdo, $identifier);
+                session_regenerate_id(true);
+                unset($_SESSION['csrf_token']);
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['role']    = $user['role'];
+                $_SESSION['email']   = $user['email'];
 
-                    if (!in_array($user['role'], ['admin', 'super_admin']) && !$user['profile_completed']) {
-                        header("Location: ../member/profile.php?first_login=1");
-                        exit;
-                    }
-
-                    $isAdminRole = in_array($user['role'], ['admin', 'super_admin']);
-                    header("Location: " . ($isAdminRole ? '../admin/dashboard.php' : '../member/feed.php'));
+                if (!in_array($user['role'], ['admin', 'super_admin']) && !$user['profile_completed']) {
+                    header("Location: ../member/profile.php?first_login=1");
                     exit;
                 }
+
+                $isAdminRole = in_array($user['role'], ['admin', 'super_admin']);
+                header("Location: " . ($isAdminRole ? '../admin/dashboard.php' : '../member/feed.php'));
+                exit;
             } else {
                 login_record_fail();
                 ip_record_fail($pdo, $identifier); // ── log + maybe auto-block
@@ -88,26 +82,11 @@ require_once __DIR__ . '/../includes/header.php';
             <p class="text-muted" style="font-size:.9rem;">ยินดีต้อนรับกลับสู่ IE-Photo Maker</p>
         </div>
 
-        <?php if(isset($_GET['verify_sent'])): ?>
-            <div class="alert alert-success">
-                <i class="ph-bold ph-envelope"></i>
-                ส่งอีเมลยืนยันไปที่ <strong><?php echo htmlspecialchars($_GET['email'] ?? ''); ?></strong> แล้ว กรุณาตรวจสอบกล่องข้อความ
-            </div>
-        <?php elseif(isset($_GET['registered'])): ?>
+        <?php if(isset($_GET['registered'])): ?>
             <div class="alert alert-success"><i class="ph-bold ph-check-circle"></i> สมัครสมาชิกสำเร็จ! เข้าสู่ระบบเพื่อเริ่มใช้งาน</div>
         <?php endif; ?>
 
-        <?php if($error === 'unverified'): ?>
-            <div class="alert alert-danger" style="line-height:1.7;">
-                <i class="ph-bold ph-envelope-simple-x"></i>
-                <strong>ยังไม่ได้ยืนยันอีเมล</strong><br>
-                <span style="font-size:.88rem;">กรุณาตรวจสอบอีเมลที่ <strong><?php echo htmlspecialchars($unverifiedEmail ?? ''); ?></strong></span><br>
-                <a href="verify.php?resend=1&email=<?php echo urlencode($unverifiedEmail ?? ''); ?>"
-                   style="font-size:.85rem;color:var(--primary);font-weight:600;">
-                    <i class="ph ph-paper-plane-tilt"></i> ส่งอีเมลยืนยันใหม่
-                </a>
-            </div>
-        <?php elseif($error): ?>
+        <?php if($error): ?>
             <div class="alert alert-danger"><i class="ph-bold ph-warning-circle"></i> <?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
 

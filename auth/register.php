@@ -37,38 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->fetch()) {
             $error = 'รหัสนักศึกษาหรืออีเมลนี้มีอยู่ในระบบแล้ว';
         } else {
-            $hashedPass  = password_hash($password, PASSWORD_DEFAULT);
-            $verifyToken = bin2hex(random_bytes(32));
-            $insertStmt  = $pdo->prepare("INSERT INTO users (student_id, email, password, phone, first_name, last_name, role, email_verified, email_verify_token, email_verify_sent_at) VALUES (?, ?, ?, ?, ?, ?, 'member', 0, ?, NOW())");
-            if ($insertStmt->execute([$student_id, $email, $hashedPass, $phone, $first_name, $last_name, $verifyToken])) {
-                // สร้าง verification link
-                $scheme   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-                $host     = $_SERVER['HTTP_HOST'];
-                $dir      = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
-                $verifyUrl = $scheme . '://' . $host . $dir . '/verify.php?token=' . $verifyToken;
-
-                // ส่งอีเมลยืนยัน
-                $emailBody = "
-                <div style='font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;border:1px solid #e0e0e0;border-radius:12px;'>
-                    <h2 style='color:#7c3aed;margin-bottom:8px;'>ยืนยันอีเมล IE-Photo KMITL</h2>
-                    <p>สวัสดี <strong>" . htmlspecialchars($first_name . ' ' . $last_name) . "</strong> 👋</p>
-                    <p>คุณได้สมัครสมาชิกด้วยรหัสนักศึกษา <strong>" . htmlspecialchars($student_id) . "</strong></p>
-                    <p>กรุณากดปุ่มด้านล่างเพื่อยืนยันอีเมลของคุณ:</p>
-                    <div style='text-align:center;margin:28px 0;'>
-                        <a href='" . $verifyUrl . "'
-                           style='background:#7c3aed;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;display:inline-block;'>
-                            ✅ ยืนยันอีเมล
-                        </a>
-                    </div>
-                    <p style='font-size:13px;color:#666;'>หรือคัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:</p>
-                    <p style='font-size:12px;color:#999;word-break:break-all;'>" . $verifyUrl . "</p>
-                    <hr style='margin:20px 0;border:none;border-top:1px solid #eee;'>
-                    <p style='font-size:12px;color:#aaa;'>หากคุณไม่ได้สมัครสมาชิก ให้ละเว้นอีเมลนี้</p>
-                </div>";
-
-                sendEmail($email, 'ยืนยันอีเมล IE-Photo KMITL', $emailBody);
-
-                header("Location: login.php?verify_sent=1&email=" . urlencode($email));
+            $hashedPass = password_hash($password, PASSWORD_DEFAULT);
+            $insertStmt = $pdo->prepare("INSERT INTO users (student_id, email, password, phone, first_name, last_name, role, email_verified) VALUES (?, ?, ?, ?, ?, ?, 'member', 1)");
+            if ($insertStmt->execute([$student_id, $email, $hashedPass, $phone, $first_name, $last_name])) {
+                header("Location: login.php?registered=1");
                 exit;
             } else {
                 $error = 'เกิดข้อผิดพลาดในการสมัครสมาชิก โปรดลองอีกครั้ง';
@@ -111,7 +83,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <span class="input-group-text" style="font-size:.8rem;">@kmitl.ac.th</span>
                 </div>
                 <div class="field-hint">
-                    <i class="ph ph-envelope-simple"></i> อีเมลยืนยันจะถูกส่งไปที่ studentid@kmitl.ac.th
+                    <i class="ph ph-envelope-simple"></i> อีเมลจะถูกตั้งเป็น studentid@kmitl.ac.th
                 </div>
             </div>
 
