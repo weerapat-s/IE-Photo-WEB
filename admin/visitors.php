@@ -3,7 +3,7 @@
 session_start();
 require_once __DIR__ . '/../config/database.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !is_admin()) {
     header("Location: ../auth/login.php");
     exit;
 }

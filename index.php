@@ -5,7 +5,7 @@
 
 $loc = '/guest/studio_booking.php';
 if (!empty($_SESSION['user_id'])) {
-    $loc = ($_SESSION['role'] === 'admin') ? '/admin/dashboard.php' : '/member/feed.php';
+    $loc = in_array($_SESSION['role'], ['admin', 'super_admin']) ? '/admin/dashboard.php' : '/member/feed.php';
 }
 
 header('Location: ' . $loc);

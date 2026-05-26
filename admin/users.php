@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . '/../config/database.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !is_admin()) {
     header("Location: ../auth/login.php");
     exit;
 }
@@ -30,9 +30,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         // ── เปลี่ยนบทบาท ──────────────────────────────────────────────────
         if ($action === 'change_role') {
             $new_role = $_POST['new_role'] ?? '';
+            // ตรวจก่อนว่า target user เป็น super_admin อยู่หรือเปล่า
+            $targetRow = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+            $targetRow->execute([$target_id]);
+            $targetRole = $targetRow->fetchColumn();
+
             if ($target_id === $current_user_id) {
                 $error = 'ไม่สามารถเปลี่ยนบทบาทของตัวเองได้';
-            } elseif (!in_array($new_role, ['admin', 'member'])) {
+            } elseif ($targetRole === 'super_admin' && !is_super_admin()) {
+                $error = 'ไม่มีสิทธิ์แก้ไขบทบาทของ Super Admin';
+            } elseif ($new_role === 'super_admin' && !is_super_admin()) {
+                $error = 'ไม่มีสิทธิ์กำหนดบทบาท Super Admin';
+            } elseif (!in_array($new_role, ['admin', 'member', 'super_admin'])) {
                 $error = 'บทบาทไม่ถูกต้อง';
             } else {
                 $pdo->prepare("UPDATE users SET role = ? WHERE id = ?")
@@ -121,13 +130,30 @@ require_once __DIR__ . '/../includes/header.php';
                         </td>
                         <td><?php echo htmlspecialchars($u['email']); ?></td>
                         <td>
-                            <span class="badge <?php echo $u['role'] === 'admin' ? 'badge-approved' : 'badge-pending'; ?>">
-                                <?php echo $u['role'] === 'admin' ? 'Admin' : 'Member'; ?>
+                            <?php
+                                $badgeClass = match($u['role']) {
+                                    'super_admin' => 'badge-approved" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff',
+                                    'admin'       => 'badge-approved',
+                                    default       => 'badge-pending',
+                                };
+                                $roleLabel = match($u['role']) {
+                                    'super_admin' => '⭐ Super Admin',
+                                    'admin'       => 'Admin',
+                                    default       => 'Member',
+                                };
+                            ?>
+                            <span class="badge <?php echo $badgeClass; ?>">
+                                <?php echo $roleLabel; ?>
                                 <?php echo $u['id'] == $current_user_id ? ' (คุณ)' : ''; ?>
                             </span>
                         </td>
                         <td>
-                            <?php if ($u['id'] != $current_user_id): ?>
+                            <?php
+                                // super_admin ของ user นั้น → แก้ได้เฉพาะ super_admin ที่ล็อกอินอยู่
+                                $canEdit = $u['id'] != $current_user_id
+                                    && !($u['role'] === 'super_admin' && !is_super_admin());
+                            ?>
+                            <?php if ($canEdit): ?>
                             <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;">
 
                                 <!-- เปลี่ยนบทบาท -->
@@ -138,6 +164,9 @@ require_once __DIR__ . '/../includes/header.php';
                                     <select name="new_role" class="form-control" style="width:auto;min-width:110px;padding:.3rem .6rem;font-size:.8rem">
                                         <option value="member" <?php echo $u['role']==='member'?'selected':''; ?>>Member</option>
                                         <option value="admin"  <?php echo $u['role']==='admin' ?'selected':''; ?>>Admin</option>
+                                        <?php if(is_super_admin()): ?>
+                                        <option value="super_admin" <?php echo $u['role']==='super_admin'?'selected':''; ?>>⭐ Super Admin</option>
+                                        <?php endif; ?>
                                     </select>
                                     <button type="submit" class="btn btn-primary btn-sm">บันทึก</button>
                                 </form>
@@ -157,8 +186,10 @@ require_once __DIR__ . '/../includes/header.php';
                                 </button>
 
                             </div>
-                            <?php else: ?>
+                            <?php elseif ($u['id'] == $current_user_id): ?>
                                 <span class="text-muted" style="font-size:.82rem">— บัญชีของคุณ —</span>
+                            <?php else: ?>
+                                <span class="text-muted" style="font-size:.82rem"><i class="ph ph-lock"></i> Super Admin</span>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -174,8 +205,20 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="mobile-card animate-in">
             <div class="mc-header">
                 <strong><?php echo htmlspecialchars($u['student_id'] ?? $u['email']); ?></strong>
-                <span class="badge <?php echo $u['role']==='admin'?'badge-approved':'badge-pending'; ?>">
-                    <?php echo $u['role']==='admin'?'Admin':'Member'; ?>
+                <?php
+                    $mcBadge = match($u['role']) {
+                        'super_admin' => 'badge-approved" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff',
+                        'admin'       => 'badge-approved',
+                        default       => 'badge-pending',
+                    };
+                    $mcLabel = match($u['role']) {
+                        'super_admin' => '⭐ Super Admin',
+                        'admin'       => 'Admin',
+                        default       => 'Member',
+                    };
+                ?>
+                <span class="badge <?php echo $mcBadge; ?>">
+                    <?php echo $mcLabel; ?>
                     <?php echo $u['id']==$current_user_id?' (คุณ)':''; ?>
                 </span>
             </div>
@@ -191,7 +234,11 @@ require_once __DIR__ . '/../includes/header.php';
                 <span><?php echo htmlspecialchars($u['email']); ?></span>
             </div>
 
-            <?php if ($u['id'] != $current_user_id): ?>
+            <?php
+                $canEditMobile = $u['id'] != $current_user_id
+                    && !($u['role'] === 'super_admin' && !is_super_admin());
+            ?>
+            <?php if ($canEditMobile): ?>
             <div class="mc-actions" style="flex-direction:column;gap:.5rem;">
                 <!-- เปลี่ยนบทบาท -->
                 <form method="POST" style="display:flex;gap:.5rem;align-items:center;width:100%">
@@ -201,6 +248,9 @@ require_once __DIR__ . '/../includes/header.php';
                     <select name="new_role" class="form-control" style="flex:1">
                         <option value="member" <?php echo $u['role']==='member'?'selected':''; ?>>Member</option>
                         <option value="admin"  <?php echo $u['role']==='admin' ?'selected':''; ?>>Admin</option>
+                        <?php if(is_super_admin()): ?>
+                        <option value="super_admin" <?php echo $u['role']==='super_admin'?'selected':''; ?>>⭐ Super Admin</option>
+                        <?php endif; ?>
                     </select>
                     <button type="submit" class="btn btn-primary btn-sm">บันทึก</button>
                 </form>

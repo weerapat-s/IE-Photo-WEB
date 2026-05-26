@@ -30,7 +30,7 @@ function isActive($page) {
     <link rel="stylesheet" href="<?php echo $base_url; ?>assets/css/glassmorphism.css">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
-<body<?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin') echo ' class="is-admin"'; ?>>
+<body<?php if(isset($_SESSION['role']) && in_array($_SESSION['role'],['admin','super_admin'])) echo ' class="is-admin"'; ?>>
     <div class="bg-orbs"></div>
 
     <!-- Top Navbar -->
@@ -39,13 +39,13 @@ function isActive($page) {
             <a href="<?php echo $base_url; ?>auth/login.php" class="nav-brand">
                 <i class="ph-bold ph-camera" style="margin-right:3px"></i> IE-PHOTO
             </a>
-            <?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin'): ?>
+            <?php if(isset($_SESSION['role']) && in_array($_SESSION['role'],['admin','super_admin'])): ?>
             <button class="mobile-toggle" id="mobile-toggle-btn" aria-label="Menu" style="margin-left:auto;">
                 <i class="ph-bold ph-list"></i>
             </button>
             <?php endif; ?>
             <div class="nav-links" id="nav-links">
-                <?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin'): ?>
+                <?php if(isset($_SESSION['role']) && in_array($_SESSION['role'],['admin','super_admin'])): ?>
                 <!-- ปุ่ม ✕ ปิด panel — ติดมุมขวาบนของ slide panel -->
                 <button id="nav-close-btn" aria-label="ปิดเมนู"
                     style="position:absolute;top:14px;right:14px;background:none;border:none;
@@ -56,7 +56,7 @@ function isActive($page) {
                 </button>
                 <?php endif; ?>
                 <?php if(isset($_SESSION['user_id'])): ?>
-                    <?php if($_SESSION['role'] === 'admin'): ?>
+                    <?php if(in_array($_SESSION['role'],['admin','super_admin'])): ?>
                         <a href="<?php echo $base_url; ?>admin/dashboard.php" class="<?php echo isActive('dashboard');?>"><i class="ph ph-squares-four"></i> แดชบอร์ด</a>
                         <a href="<?php echo $base_url; ?>admin/bookings.php" class="<?php echo isActive('bookings');?>"><i class="ph ph-list-checks"></i> รายการจอง</a>
                         <a href="<?php echo $base_url; ?>member/borrow_form.php" class="<?php echo isActive('borrow_form');?>"><i class="ph ph-hand-grabbing"></i> ยืมอุปกรณ์</a>
@@ -68,7 +68,9 @@ function isActive($page) {
                         <a href="<?php echo $base_url; ?>admin/users.php" class="<?php echo isActive('users');?>"><i class="ph ph-users"></i> จัดการสมาชิก</a>
                         <a href="<?php echo $base_url; ?>admin/contact_manage.php" class="<?php echo isActive('contact_manage');?>"><i class="ph ph-users-three"></i> จัดการระบบ</a>
                         <a href="<?php echo $base_url; ?>admin/visitors.php" class="<?php echo isActive('visitors');?>"><i class="ph ph-eye"></i> ผู้เข้าชม</a>
+                        <?php if(is_super_admin()): ?>
                         <a href="<?php echo $base_url; ?>admin/ip_manager.php" class="<?php echo isActive('ip_manager');?>"><i class="ph ph-shield-warning"></i> จัดการ IP</a>
+                        <?php endif; ?>
                     <?php else: ?>
                         <a href="<?php echo $base_url; ?>member/feed.php" class="<?php echo isActive('feed');?>"><i class="ph ph-house"></i> ฟีด</a>
                         <a href="<?php echo $base_url; ?>member/borrow_form.php" class="<?php echo isActive('borrow_form');?>"><i class="ph ph-hand-grabbing"></i> ยืมอุปกรณ์</a>
@@ -92,14 +94,14 @@ function isActive($page) {
     </nav>
 
     <!-- Nav Overlay (Admin mobile only) -->
-    <?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin'): ?>
+    <?php if(isset($_SESSION['role']) && in_array($_SESSION['role'],['admin','super_admin'])): ?>
     <div class="nav-overlay" id="nav-overlay"></div>
     <?php endif; ?>
 
     <!-- Main Content -->
     <main class="main-content">
 
-    <?php if(isset($_SESSION['role']) && $_SESSION['role']==='admin'): ?>
+    <?php if(isset($_SESSION['role']) && in_array($_SESSION['role'],['admin','super_admin'])): ?>
     <script>
     (function(){
         var btn    = document.getElementById('mobile-toggle-btn');

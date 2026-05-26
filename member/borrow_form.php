@@ -18,7 +18,7 @@ $equipments = $stmt->fetchAll();
 
 // Get members for "responsible person" dropdown
 // Admin can see all members; regular members only see themselves
-$is_admin = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+$is_admin = isset($_SESSION['role']) && in_array($_SESSION['role'], ['admin', 'super_admin']);
 if ($is_admin) {
     $memberStmt = $pdo->query("SELECT id, student_id, first_name, last_name FROM users ORDER BY student_id ASC");
     $members = $memberStmt->fetchAll();

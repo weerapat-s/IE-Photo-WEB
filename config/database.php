@@ -306,6 +306,18 @@ if (!function_exists('get_client_ip')) {
     }
 }
 
+// ─── Role helpers ────────────────────────────────────────────────────────────
+if (!function_exists('is_admin')) {
+    /** คืน true ถ้า user ปัจจุบันเป็น admin หรือ super_admin */
+    function is_admin(): bool {
+        return in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
+    }
+    /** คืน true ถ้า user ปัจจุบันเป็น super_admin เท่านั้น */
+    function is_super_admin(): bool {
+        return ($_SESSION['role'] ?? '') === 'super_admin';
+    }
+}
+
 // Railway MySQL env vars (fallback to localhost for development)
 $host     = getenv('MYSQLHOST')     ?: getenv('DB_HOST')     ?: 'localhost';
 $dbname   = getenv('MYSQLDATABASE') ?: getenv('DB_NAME')     ?: 'iephotoo_booking';

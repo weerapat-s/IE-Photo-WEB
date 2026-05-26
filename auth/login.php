@@ -5,7 +5,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/mail.php';
 
 if (isset($_SESSION['user_id'])) {
-    if ($_SESSION['role'] === 'admin') {
+    if (is_admin()) {
         header("Location: ../admin/dashboard.php");
     } else {
         header("Location: ../member/feed.php");
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($user && password_verify($password, $user['password'])) {
                 // บล็อก login ถ้ายังไม่ยืนยันอีเมล (ยกเว้น admin)
-                if ($user['role'] !== 'admin' && !$user['email_verified']) {
+                if (!in_array($user['role'], ['admin', 'super_admin']) && !$user['email_verified']) {
                     $error = 'unverified';
                     $unverifiedEmail = $user['email'];
                 } else {
@@ -55,12 +55,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['role']    = $user['role'];
                     $_SESSION['email']   = $user['email'];
 
-                    if ($user['role'] !== 'admin' && !$user['profile_completed']) {
+                    if (!in_array($user['role'], ['admin', 'super_admin']) && !$user['profile_completed']) {
                         header("Location: ../member/profile.php?first_login=1");
                         exit;
                     }
 
-                    header("Location: " . ($user['role'] === 'admin' ? '../admin/dashboard.php' : '../member/feed.php'));
+                    $isAdminRole = in_array($user['role'], ['admin', 'super_admin']);
+                    header("Location: " . ($isAdminRole ? '../admin/dashboard.php' : '../member/feed.php'));
                     exit;
                 }
             } else {

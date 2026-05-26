@@ -13,7 +13,7 @@
     <script>document.body.classList.add('has-bottom-nav');</script>
     <nav class="bottom-nav" id="bottom-nav">
         <div class="bottom-nav-inner">
-            <?php if($_SESSION['role'] === 'admin'): ?>
+            <?php if(in_array($_SESSION['role'],['admin','super_admin'])): ?>
                 <a href="<?php echo $base_url; ?>admin/dashboard.php" class="<?php echo isActive('dashboard');?>">
                     <i class="ph<?php echo isActive('dashboard') ? '-fill' : ''; ?> ph-squares-four"></i>
                     <span>หน้าหลัก</span>
