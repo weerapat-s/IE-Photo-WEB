@@ -44,7 +44,7 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 <?php endif; ?>
 
-<div style="max-width:700px; margin:0 auto;">
+<div class="page-container-md">
     <?php if(empty($feeds)): ?>
         <div class="glass-card empty-state">
             <i class="ph ph-calendar-blank"></i>
@@ -65,9 +65,9 @@ require_once __DIR__ . '/../includes/header.php';
                     <img src="<?php echo htmlspecialchars($base_url . 'uploads/booking_forms/' . $feed['form_image_path']); ?>" alt="Activity" class="feed-image" onerror="this.style.display='none'">
                 <?php endif; ?>
                 <div class="feed-body">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.4rem;margin-bottom:.8rem;">
                         <span class="badge <?php echo $badgeClass; ?>"><?php echo $statusLabel; ?></span>
-                        <span style="font-size:.78rem;color:var(--text-muted);"><i class="ph ph-clock"></i> <?php echo date('d M Y, H:i', strtotime($feed['created_at'])); ?></span>
+                        <span style="font-size:.78rem;color:var(--text-muted);white-space:nowrap;"><i class="ph ph-clock"></i> <?php echo date('d M Y, H:i', strtotime($feed['created_at'])); ?></span>
                     </div>
                     <p style="font-size:1rem;line-height:1.6;margin-bottom:1.2rem;"><?php echo htmlspecialchars($feed['message']); ?></p>
                     <div style="border-top:1px solid var(--border);padding-top:.8rem;display:flex;align-items:center;">

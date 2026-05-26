@@ -10,6 +10,7 @@
 
     <!-- Bottom Navigation (Mobile) -->
     <?php if(isset($_SESSION['user_id'])): ?>
+    <script>document.body.classList.add('has-bottom-nav');</script>
     <nav class="bottom-nav" id="bottom-nav">
         <div class="bottom-nav-inner">
             <?php if($_SESSION['role'] === 'admin'): ?>

@@ -1,0 +1,12 @@
+<?php
+// index.php — Entry point
+@session_start();
+
+$loc = '/guest/studio_booking.php';
+if (!empty($_SESSION['user_id'])) {
+    $loc = ($_SESSION['role'] === 'admin') ? '/admin/dashboard.php' : '/member/feed.php';
+}
+
+header('Location: ' . $loc);
+header('Cache-Control: no-store, no-cache');
+exit;

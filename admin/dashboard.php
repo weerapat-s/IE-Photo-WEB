@@ -75,23 +75,24 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <div class="charts-grid">
-    <div class="glass-card animate-in" style="padding:1.3rem;">
+    <div class="glass-card animate-in">
         <h3 style="font-size:1rem;margin-bottom:1rem;"><i class="ph-bold ph-chart-pie-slice"></i> สัดส่วนการจอง</h3>
-        <div style="height:220px;"><canvas id="typeChart"></canvas></div>
+        <div style="height:clamp(160px,30vw,220px);"><canvas id="typeChart"></canvas></div>
     </div>
-    <div class="glass-card animate-in" style="padding:1.3rem;">
+    <div class="glass-card animate-in">
         <h3 style="font-size:1rem;margin-bottom:1rem;"><i class="ph-bold ph-chart-bar"></i> แนวโน้มการจอง (7 วัน)</h3>
-        <div style="height:220px;"><canvas id="trendChart"></canvas></div>
+        <div style="height:clamp(160px,30vw,220px);"><canvas id="trendChart"></canvas></div>
     </div>
 </div>
 
 <div class="glass-card animate-in" style="padding:1.5rem;">
-    <div class="flex-between" style="margin-bottom:1.2rem;">
-        <h3 style="font-size:1.1rem;margin:0;"><i class="ph-bold ph-calendar-check"></i> รายการจองล่าสุด</h3>
-        <a href="bookings.php" class="btn btn-outline btn-sm">ดูทั้งหมด</a>
+    <div class="flex-between" style="margin-bottom:1.2rem;gap:.6rem;">
+        <h3 style="font-size:1.1rem;margin:0;flex:1;"><i class="ph-bold ph-calendar-check"></i> รายการจองล่าสุด</h3>
+        <a href="bookings.php" class="btn btn-outline btn-sm" style="flex-shrink:0;">ดูทั้งหมด</a>
     </div>
 
     <!-- Desktop -->
+    <p class="table-scroll-hint"><i class="ph ph-arrow-left"></i> เลื่อนดูข้อมูลเพิ่มเติม <i class="ph ph-arrow-right"></i></p>
     <div class="table-responsive desktop-table">
         <table class="glass-table">
             <thead><tr><th>ID</th><th>ประเภท</th><th>ผู้จอง</th><th>เริ่มวันที่</th><th>สถานะ</th></tr></thead>
@@ -101,6 +102,9 @@ require_once __DIR__ . '/../includes/header.php';
                     $label='รอตรวจสอบ';$badgeClass='badge-pending';
                     if($rb['status']=='approved'){$label='อนุมัติแล้ว';$badgeClass='badge-approved';}
                     if($rb['status']=='rejected'){$label='ปฏิเสธแล้ว';$badgeClass='badge-rejected';}
+                    if($rb['status']=='pending_return'){$label='รอตรวจคืน';$badgeClass='badge-pending';}
+                    if($rb['status']=='returned'){$label='คืนแล้ว';$badgeClass='badge-returned';}
+                    if($rb['status']=='cancelled'){$label='ยกเลิก';$badgeClass='badge-cancelled';}
                 ?>
                 <tr>
                     <td><strong>#<?php echo $rb['id'];?></strong></td>
@@ -118,7 +122,7 @@ require_once __DIR__ . '/../includes/header.php';
     <!-- Mobile -->
     <div class="mobile-cards">
         <?php foreach($recent_bookings as $rb):?>
-            <?php $label='รอตรวจสอบ';$badgeClass='badge-pending';if($rb['status']=='approved'){$label='อนุมัติ';$badgeClass='badge-approved';}if($rb['status']=='rejected'){$label='ปฏิเสธ';$badgeClass='badge-rejected';}?>
+            <?php $label='รอตรวจสอบ';$badgeClass='badge-pending';if($rb['status']=='approved'){$label='อนุมัติ';$badgeClass='badge-approved';}if($rb['status']=='rejected'){$label='ปฏิเสธ';$badgeClass='badge-rejected';}if($rb['status']=='pending_return'){$label='รอตรวจคืน';$badgeClass='badge-pending';}if($rb['status']=='returned'){$label='คืนแล้ว';$badgeClass='badge-returned';}if($rb['status']=='cancelled'){$label='ยกเลิก';$badgeClass='badge-cancelled';}?>
             <div class="mobile-card">
                 <div class="mc-header"><strong>#<?php echo $rb['id'];?></strong><span class="badge <?php echo $badgeClass;?>"><?php echo $label;?></span></div>
                 <div class="mc-row"><span class="mc-label">ประเภท</span><span><?php echo $rb['booking_type']==='equipment'?'📦':'🎬';?></span></div>

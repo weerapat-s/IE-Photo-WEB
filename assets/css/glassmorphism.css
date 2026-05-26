@@ -35,15 +35,18 @@
 html{
     scroll-behavior:smooth;
     -webkit-text-size-adjust:100%;
-    /* overflow-x:hidden บน html แทน body — iOS Safari จะไม่กระทบ position:fixed */
+    /* overflow-x:hidden บน html — ป้องกัน horizontal scroll ทุก browser รวม Android WebView */
     overflow-x:hidden;
+    /* max-width:100vw บน html ป้องกัน WebView ขยาย scroll area */
+    max-width:100vw;
 }
 body{
     font-family:'Kanit','Inter',sans-serif;
     background:var(--bg);color:var(--text);
     min-height:100vh;min-height:100dvh;
     -webkit-font-smoothing:antialiased;
-    padding-bottom:calc(var(--bottom-nav-h) + var(--safe-bottom) + 8px);
+    /* BUG-020: guest pages ไม่มี bottom-nav — padding จะถูก override โดย .has-bottom-nav */
+    padding-bottom:1rem;
     /* ไม่ใส่ overflow-x:hidden บน body เพราะจะทำให้ position:fixed ติดขัดบน iOS */
 }
 img{max-width:100%;height:auto}
@@ -89,26 +92,30 @@ a:hover{color:var(--primary-hover)}
 }
 .nav-container{
     max-width:1200px;margin:0 auto;padding:.55rem 1rem;
-    display:flex;justify-content:center;align-items:center;
+    display:flex;justify-content:space-between;align-items:center;
     flex-wrap:nowrap;gap:.5rem;
 }
 .nav-brand{
-    font-family:'Kanit',sans-serif;font-weight:800;font-size:1rem;
+    font-family:'Kanit',sans-serif;font-weight:800;font-size:1.05rem;
     color:var(--primary);letter-spacing:-.5px;
     background:linear-gradient(135deg,var(--primary),var(--secondary));
     -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-    white-space:nowrap;margin-right:.4rem;
+    white-space:nowrap;margin-right:.5rem;
+    flex-shrink:0;
+    display:inline-flex;align-items:center;gap:5px;
 }
-.nav-links{display:flex;gap:.2rem;align-items:center;flex-wrap:nowrap}
+.nav-brand i{font-size:1.2rem;-webkit-text-fill-color:var(--primary)}
+.nav-links{display:flex;gap:.3rem;align-items:center;flex-wrap:nowrap}
 .nav-links a{
-    color:var(--text);font-weight:500;font-size:.78rem;
-    padding:.4rem .45rem;border-radius:var(--radius-xs);
+    color:var(--text);font-weight:500;font-size:.82rem;
+    padding:.42rem .55rem;border-radius:var(--radius-xs);
     transition:all .2s;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:5px;
 }
 .nav-links a:hover{color:var(--primary);background:rgba(242,83,28,0.06)}
 .nav-profile{
     display:flex;gap:.3rem;align-items:center;
-    border-left:1px solid var(--border);padding-left:.5rem;margin-left:.2rem;
+    border-left:1px solid var(--border);padding-left:.6rem;margin-left:.25rem;
 }
 
 /* === Bottom Navigation (Mobile) === */
@@ -141,9 +148,22 @@ a:hover{color:var(--primary-hover)}
 .bottom-nav a.active,.bottom-nav a:hover{color:var(--primary)}
 .bottom-nav a.active i{transform:scale(1.1)}
 
+/* BUG-020: เฉพาะหน้าที่มี bottom-nav (logged-in) จึงเพิ่ม padding-bottom */
+@media (max-width:950px){
+    body.has-bottom-nav{
+        padding-bottom:calc(var(--bottom-nav-h) + var(--safe-bottom) + 8px);
+    }
+}
+/* เมื่อเมนูเปิด — ล็อก scroll แบบ iOS-safe (ไม่ใช้ body overflow:hidden) */
+html.menu-open{overflow:hidden}
+html.menu-open body{overflow:hidden;touch-action:none}
+
 /* === Slide Menu Overlay === */
 .nav-overlay{
-    position:fixed;inset:0;z-index:900;
+    position:fixed;top:0;left:0;right:0;
+    /* bottom จะถูก override ใน mobile media query ให้ไม่คลุม bottom-nav */
+    bottom:0;
+    z-index:900;
     background:rgba(0,0,0,0.25);
     opacity:0;visibility:hidden;
     transition:opacity .3s,visibility .3s;
@@ -386,60 +406,153 @@ textarea.form-control{resize:vertical;min-height:80px}
 .flex-between{display:flex;justify-content:space-between;align-items:center}
 .flex-gap{display:flex;gap:.8rem}
 .grid-2{display:grid;grid-template-columns:1fr;gap:1rem}
-.form-row{display:flex;flex-direction:column;gap:.5rem}
-.form-row > *{flex:1}
+.form-row{display:flex;flex-direction:column;gap:1rem}
+.form-row > *{flex:1;min-width:0}
 .empty-state{text-align:center;padding:2.5rem 1rem}
 .empty-state i{font-size:2.5rem;color:var(--text-muted);opacity:.3;margin-bottom:.8rem;display:block}
 
 /* ========== RESPONSIVE ========== */
 
-/* Mobile: ≤ 950px */
-@media (max-width:950px) {
-    .mobile-toggle{display:flex;align-items:center;justify-content:center}
-    .bottom-nav{display:block}
-
-    .nav-links{
-        position:fixed;top:0;right:-100%;
-        width:80%;max-width:340px;height:100vh;height:100dvh;
-        background:#fff;
-        flex-direction:column;justify-content:flex-start;align-items:stretch;
-        transition:right .35s cubic-bezier(.4,0,.2,1);
-        box-shadow:-8px 0 30px rgba(0,0,0,.12);
-        /* z-index สูงกว่า overlay(900) และ bottom-nav(1050) */
-        z-index:1060;
-        gap:0;padding:calc(var(--safe-top) + 60px) 0 2rem;
-        overflow-y:auto;-webkit-overflow-scrolling:touch;
-        /* กันไม่ให้ stacking context ของ parent มาบัง */
-        pointer-events:auto;
-        isolation:isolate;
+/* ── Admin mobile: hamburger slide panel ── */
+@media (max-width:950px){
+    /* ยก navbar สูงกว่า panel — ให้ปุ่ม ☰/✕ อยู่ด้านบน panel เสมอ */
+    .is-admin .glass-navbar{ z-index:1070 }
+    /* แสดงปุ่ม hamburger เฉพาะ admin */
+    .is-admin .mobile-toggle{
+        display:flex !important;
+        align-items:center;justify-content:center;
+        z-index:1075; /* สูงกว่า panel */
     }
-    .nav-links.active{right:0}
-    .nav-links a{
-        display:flex;align-items:center;
-        font-size:.95rem;padding:.85rem 1.5rem;width:100%;
-        text-align:left;border-radius:0;
-        border-bottom:1px solid rgba(0,0,0,.03);
-        /* Touch fixes */
+    /* nav-links กลายเป็น slide panel */
+    .is-admin .nav-links{
+        position:fixed;top:0;right:0;
+        width:80%;max-width:300px;height:100vh;height:100dvh;
+        background:#fff;flex-direction:column;
+        justify-content:flex-start;align-items:stretch;
+        transform:translateX(100%);
+        transition:transform .35s cubic-bezier(.4,0,.2,1);
+        box-shadow:-8px 0 30px rgba(0,0,0,.12);
+        z-index:1060;gap:0;
+        padding:calc(var(--safe-top) + 62px) 0 2rem;
+        overflow-y:auto;-webkit-overflow-scrolling:touch;
+        pointer-events:auto;isolation:isolate;
+        will-change:transform;
+        -webkit-backface-visibility:hidden;backface-visibility:hidden;
+        flex:initial; /* override flex:1 ของ non-admin */
+        scrollbar-width:none;-ms-overflow-style:none;
+    }
+    .is-admin .nav-links::-webkit-scrollbar{display:none}
+    .is-admin .nav-links.active{transform:translateX(0)}
+    /* links ใน slide panel — แสดง icon + text เต็ม */
+    .is-admin .nav-links > a{
+        display:flex;align-items:center;gap:10px;
+        font-size:.9rem;font-weight:500;
+        padding:.8rem 1.3rem;width:100%;
+        border-bottom:1px solid rgba(0,0,0,.04);
+        border-radius:0;white-space:nowrap;
+        min-height:46px;
         -webkit-tap-highlight-color:transparent;
         touch-action:manipulation;
-        cursor:pointer;
-        min-height:48px; /* iOS recommended touch target */
-        pointer-events:auto;
-        position:relative;
-        z-index:1;
     }
-    .nav-links a:active{background:rgba(242,83,28,.08)}
-    .nav-links a i{width:24px;text-align:center;flex-shrink:0}
-    .nav-profile{
+    .is-admin .nav-links > a i{
+        display:inline !important;
+        width:22px;text-align:center;flex-shrink:0;font-size:1rem;
+    }
+    .is-admin .nav-profile{
         flex-direction:column;border-left:none;
         border-top:1px solid var(--border);
-        padding:1rem 1.5rem 0;margin:auto 0 0;width:100%;gap:.5rem;
+        padding:1rem 1.3rem 0;margin:auto 0 0;
+        width:100%;gap:.5rem;
     }
-    .nav-profile a{
-        width:100%;text-align:center;padding:.7rem;
+    .is-admin .nav-profile a{
+        width:100%;text-align:center;
+        padding:.65rem;min-height:44px;font-size:.85rem;
+        display:flex !important;align-items:center;justify-content:center;gap:6px;
+    }
+    .is-admin .nav-profile a i{display:inline !important}
+    .is-admin .nav-profile .btn-sm{
+        width:100%;justify-content:center;
+        font-size:.85rem;padding:.6rem;
+    }
+    /* overlay — คืนให้ admin ใช้งานได้ */
+    .is-admin .nav-overlay{
+        display:block;
+        position:fixed;top:0;left:0;right:0;
+        bottom:calc(var(--bottom-nav-h) + var(--safe-bottom));
+        z-index:900;
+        background:rgba(0,0,0,.4);
+        opacity:0;visibility:hidden;
+        transition:opacity .3s,visibility .3s;
+        pointer-events:none;
+    }
+    .is-admin .nav-overlay.active{
+        opacity:1;visibility:visible;pointer-events:auto;
+    }
+}
+
+/* Mobile: ≤ 950px */
+@media (max-width:950px) {
+    /* ซ่อน hamburger — ใช้ top-bar แทน (non-admin) */
+    .mobile-toggle{display:none !important}
+    .bottom-nav{display:block}
+    /* overlay ไม่ถูกใช้อีกแล้ว */
+    .nav-overlay{display:none}
+
+    /* navbar สูงขึ้นนิด เพื่อให้ touch target สบาย */
+    .nav-container{padding:.6rem 1rem}
+
+    /* ── nav-links: always-visible horizontal scrollable bar (non-admin) ── */
+    /* ห้ามใส่ !important — จะ override .is-admin .nav-links{transform:translateX(100%)} */
+    .nav-links{
+        position:static;
+        transform:none;
+        width:auto;max-width:none;height:auto;
+        flex-direction:row;justify-content:flex-end;align-items:center;
+        flex-wrap:nowrap;
+        background:transparent;box-shadow:none;
+        padding:0;gap:.25rem;
+        overflow-x:auto;overflow-y:visible;
+        scrollbar-width:none;-ms-overflow-style:none;
+        isolation:auto;will-change:auto;
+        -webkit-backface-visibility:visible;backface-visibility:visible;
+        pointer-events:auto;
+        flex:1;min-width:0;
+    }
+    .nav-links::-webkit-scrollbar{display:none}
+    .nav-links a{
+        font-size:.8rem;font-weight:600;
+        padding:.38rem .6rem;
+        border-radius:var(--radius-xs);
+        border-bottom:none;
+        white-space:nowrap;
+        width:auto;
+        min-height:38px;
+        display:inline-flex;align-items:center;gap:4px;
         -webkit-tap-highlight-color:transparent;
         touch-action:manipulation;
-        min-height:44px;
+    }
+    /* ซ่อน icon ใน nav-links บน mobile — ประหยัดพื้นที่, ดูสะอาดขึ้น */
+    .nav-links > a i,
+    .nav-links > a .ph,
+    .nav-links > a [class*="ph-"]{display:none}
+    .nav-profile{
+        flex-direction:row;align-items:center;
+        border-left:1px solid var(--border);border-top:none;
+        padding:0 0 0 .5rem;margin:0 0 0 .1rem;
+        width:auto;gap:.2rem;flex-shrink:0;
+    }
+    /* ซ่อน icon ใน nav-profile ด้วย */
+    .nav-profile a i,
+    .nav-profile a .ph,
+    .nav-profile a [class*="ph-"]{display:none}
+    .nav-profile a{
+        width:auto;
+        padding:.38rem .5rem;min-height:38px;
+        font-size:.8rem;font-weight:600;white-space:nowrap;
+    }
+    /* ปุ่มออกจากระบบ — compact บน mobile */
+    .nav-profile .btn-sm{
+        padding:.32rem .6rem;font-size:.75rem;min-height:34px;
     }
 
     .main-content{margin:.8rem auto;padding:0 .7rem}
@@ -477,7 +590,7 @@ textarea.form-control{resize:vertical;min-height:80px}
     .contact-card{padding:.8rem .6rem}
     .contact-avatar{width:52px;height:52px;border-radius:16px}
     .upload-zone{padding:1.2rem}
-    .nav-links{width:85%;max-width:300px}
+    .nav-links a{font-size:.72rem;padding:.35rem .45rem}
     .page-header h2{font-size:1.25rem}
     .bottom-nav a{font-size:.6rem;min-width:44px}
     .mc-row{flex-wrap:wrap}
@@ -503,7 +616,8 @@ textarea.form-control{resize:vertical;min-height:80px}
     .main-content{padding:0 .5rem}
     .mobile-card{padding:.8rem}
     .glass-table{min-width:480px}
-    .nav-links{width:90%;max-width:280px}
+    .nav-links a{font-size:.65rem;padding:.25rem .3rem}
+    .nav-profile a{font-size:.65rem;padding:.25rem .3rem}
     .auth-wrapper{padding:1rem .5rem}
     .badge{font-size:.68rem;padding:.25rem .5rem}
 }
@@ -548,6 +662,8 @@ textarea.form-control{resize:vertical;min-height:80px}
 /* === Hover Animations === */
 .glass-card{transition:transform .25s cubic-bezier(.4,0,.2,1),box-shadow .25s,border-color .25s}
 .glass-card:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,.1),var(--card-glow);border-color:rgba(242,83,28,.18)}
+/* BUG-019: modal ใช้ glass-card ด้วย — ห้ามเด้งตอน hover */
+.modal-inner:hover,.modal-overlay .glass-card:hover,.modal-legacy .glass-card:hover{transform:none !important;box-shadow:var(--card-shadow),var(--card-glow)}
 
 .stat-card{transition:transform .25s cubic-bezier(.4,0,.2,1),box-shadow .25s,border-color .25s}
 .stat-card:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 12px 28px rgba(0,0,0,.08);border-color:rgba(242,83,28,.2)}
@@ -580,6 +696,263 @@ textarea.form-control{resize:vertical;min-height:80px}
 
 @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(242,83,28,.3)}50%{box-shadow:0 0 0 6px rgba(242,83,28,.0)}}
 .btn-primary:hover{animation:pulseGlow .6s ease}
+
+/* === Modal Overlay (reusable class) === */
+.modal-overlay{
+    position:fixed;inset:0;z-index:9000;
+    background:rgba(0,0,0,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    display:none;justify-content:center;align-items:center;
+    padding:max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+.modal-overlay.open{display:flex}
+.modal-inner{
+    max-width:480px;width:100%;position:relative;
+    max-height:calc(100dvh - 3rem);overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+}
+/* Fallback for browsers without dvh */
+@supports not (height:100dvh){
+    .modal-inner{max-height:calc(100vh - 3rem)}
+}
+/* Mobile: modal เกาะด้านบนจอ ทำให้เห็นปุ่มทันทีไม่ต้องเลื่อน */
+@media (max-width:950px){
+    .modal-overlay{
+        align-items:flex-start;
+        padding-top:max(.8rem, env(safe-area-inset-top));
+    }
+    /* upload-zone ใน modal — compact มาก เพื่อให้ปุ่ม submit พอดีจอ */
+    .modal-overlay .upload-zone,
+    .modal-legacy .upload-zone{
+        padding:.7rem .8rem;
+    }
+    .modal-overlay .upload-zone i,
+    .modal-legacy .upload-zone i{
+        font-size:1.4rem !important;
+    }
+    .modal-overlay .upload-zone p,
+    .modal-legacy .upload-zone p{
+        font-size:.75rem;margin:.2rem 0 0;
+    }
+    .modal-inner{
+        max-height:calc(100dvh - 5rem);
+    }
+}
+
+/* === Responsive Improvements === */
+
+/* flex-between: allow wrapping on mobile */
+@media (max-width:950px){
+    .flex-between{flex-wrap:wrap;gap:.6rem}
+    /* form-row: reset inline align-items when stacked column */
+    .form-row{align-items:stretch !important}
+    /* Keep charts from being too tall */
+    .charts-grid canvas{max-height:200px}
+}
+
+/* Small phones: stack flex-between vertically */
+@media (max-width:600px){
+    .flex-between{flex-direction:column;align-items:flex-start}
+    .flex-between > .btn,.flex-between > a.btn{
+        align-self:stretch;justify-content:center;text-align:center
+    }
+    /* charts smaller */
+    .charts-grid canvas{max-height:160px}
+    /* filter bar wraps nicely */
+    .filter-bar{display:flex;flex-wrap:wrap;gap:.4rem}
+    /* Glass card action rows wrap */
+    .mc-actions{flex-wrap:wrap}
+    /* stat value font */
+    .stat-card .stat-value{font-size:1.35rem}
+}
+
+/* === Stats grid 3-col variant === */
+.stats-grid-3{grid-template-columns:repeat(3,1fr)}
+@media (max-width:480px){
+    .stats-grid-3{grid-template-columns:repeat(3,1fr)} /* keep 3-col even on small phones */
+}
+@media (max-width:360px){
+    .stats-grid-3{grid-template-columns:repeat(3,1fr);gap:.4rem}
+    .stats-grid-3 .stat-card{padding:.65rem .4rem}
+    .stats-grid-3 .stat-card .stat-value{font-size:1.1rem}
+    .stats-grid-3 .stat-card .stat-label{font-size:.68rem}
+    .stats-grid-3 .stat-card .stat-icon{display:none} /* hide icon to save space */
+}
+
+/* === Equipment checklist height — landscape mobile === */
+@media (max-width:950px) and (orientation:landscape){
+    .eq-checklist{max-height:160px !important}
+}
+@media (max-width:420px){
+    .eq-checklist{max-height:220px !important}
+}
+
+/* === Table scroll hint === */
+.table-scroll-hint{
+    display:none;
+    text-align:center;
+    font-size:.75rem;
+    color:var(--text-muted);
+    padding:.3rem 0 .5rem;
+    letter-spacing:.3px;
+}
+.table-scroll-hint i{font-size:.85rem}
+@media (max-width:950px){
+    .table-scroll-hint{display:block}
+}
+
+/* === Tasks grid — responsive === */
+.tasks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+@media (max-width:600px){
+    .tasks-grid{grid-template-columns:1fr}
+}
+
+/* === Filter bar === */
+.filter-bar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+@media (max-width:600px){
+    .filter-bar{gap:.4rem}
+    .filter-bar .btn-sm{flex-grow:1;text-align:center;justify-content:center}
+}
+
+/* === Flex-between with action buttons on mobile === */
+@media (max-width:600px){
+    .flex-between .filter-bar{width:100%}
+    .page-actions{display:flex;flex-direction:column;gap:.5rem;width:100%}
+    .page-actions .btn{width:100%;justify-content:center}
+}
+
+/* === Add form rows stack on mobile === */
+@media (max-width:600px){
+    .add-form-row{flex-direction:column !important}
+    .add-form-row > *{flex:none !important;width:100%}
+    .add-form-actions{width:100%;display:flex;gap:.5rem}
+    .add-form-actions .btn{flex:1}
+}
+
+/* === Studio booking grid: form first on mobile === */
+@media (max-width:950px){
+    .studio-booking-grid{display:flex;flex-direction:column-reverse}
+}
+@media (min-width:951px){
+    .studio-booking-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+}
+
+/* === Users modal: proper modal-overlay class === */
+.modal-legacy{
+    display:none;
+    position:fixed;inset:0;z-index:2000;
+    background:rgba(0,0,0,.55);
+    align-items:center;justify-content:center;
+    padding:max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+.modal-legacy.open{display:flex}
+.modal-legacy .glass-card{
+    max-height:calc(100dvh - 3rem);
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+@supports not (height:100dvh){
+    .modal-legacy .glass-card{max-height:calc(100vh - 3rem)}
+}
+
+/* === My tasks: due-date on very small screens stack vertically === */
+@media (max-width:420px){
+    .task-meta{flex-direction:column;align-items:flex-start;gap:.2rem}
+    .task-meta span{margin-left:0 !important}
+    /* task action buttons wrap on small phones */
+    .task-actions{flex-wrap:wrap !important}
+    .task-actions .btn{flex:1;min-width:120px;justify-content:center}
+}
+
+/* === Page container max-width responsive === */
+.page-container{max-width:900px;margin:0 auto;width:100%;padding:0}
+.page-container-md{max-width:700px;margin:0 auto;width:100%;padding:0}
+.page-container-sm{max-width:550px;margin:0 auto;width:100%;padding:0}
+@media (max-width:600px){
+    /* main-content already provides .7rem side padding — containers need no extra padding */
+    .page-container,.page-container-md,.page-container-sm{padding:0}
+}
+
+/* === Dashboard chart grid mobile === */
+@media (max-width:600px){
+    .charts-grid .glass-card{padding:1rem !important}
+    .charts-grid h3{font-size:.9rem !important}
+}
+
+/* === Table overflow improve === */
+.table-responsive{border-radius:var(--radius-sm);overflow-x:auto}
+
+/* === Modal: on mobile account for bottom-nav so content isn't hidden behind it === */
+@media (max-width:950px){
+    .modal-overlay,.modal-legacy{
+        padding-bottom:calc(var(--bottom-nav-h) + var(--safe-bottom) + 1rem) !important
+    }
+    /* mobile-cards: bottom padding เพิ่มให้ card ล่างสุดไม่ถูก bottom-nav บัง */
+    .mobile-cards{
+        padding-bottom:calc(var(--bottom-nav-h) + var(--safe-bottom) + 1.5rem) !important
+    }
+}
+
+/* === ซ่อน bottom-nav ทันทีที่ modal เปิด (CSS :has) ===
+   ป้องกัน bottom-nav บัง/ดัก touch ขณะ modal แสดงผล */
+@supports selector(:has(.x)) {
+    body:has(.modal-overlay.open) #bottom-nav,
+    body:has(.modal-legacy.open) #bottom-nav {
+        pointer-events: none !important;
+        visibility: hidden;
+    }
+}
+
+/* note: removed 480–600 form-row:row override — it conflicted with .add-form-row column layout */
+
+/* === Accessibility: Focus rings === */
+:focus-visible{
+    outline:2px solid var(--primary);
+    outline-offset:2px;
+}
+button:focus-visible,a:focus-visible{
+    outline:2px solid var(--primary);
+    outline-offset:3px;
+}
+
+/* === task-meta: flex row wrapping (used in my_tasks.php) === */
+.task-meta{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem}
+.task-meta span{display:inline-flex;align-items:center;gap:3px}
+
+/* === Ultra-small phones: ≤ 320px (iPhone SE 1st gen, Moto G4) === */
+@media (max-width:320px){
+    :root{--radius:12px;--radius-sm:8px;--radius-xs:6px}
+    .glass-card{padding:.7rem;border-radius:11px}
+    .btn{padding:.5rem .7rem;font-size:.79rem}
+    .btn-sm{padding:.3rem .5rem;font-size:.73rem}
+    .stat-card{padding:.6rem .4rem}
+    .stat-card .stat-value{font-size:1rem}
+    .stat-card .stat-label{font-size:.67rem}
+    .stat-card .stat-icon{display:none}
+    .main-content{padding:0 .4rem}
+    .mobile-card{padding:.7rem}
+    .badge{font-size:.65rem;padding:.2rem .45rem}
+    .page-header h2{font-size:1.05rem}
+    .page-header p{font-size:.78rem}
+    .form-control{font-size:14px;padding:.6rem .75rem}
+    .bottom-nav a{font-size:.55rem;padding:.25rem .3rem;min-width:36px}
+    .bottom-nav a i{font-size:1rem}
+}
+
+/* === Touch-device: disable hover micro-animations that can "stick" === */
+@media (hover:none) and (pointer:coarse){
+    .glass-card:hover{transform:none;box-shadow:var(--card-shadow),var(--card-glow);border-color:var(--card-border)}
+    .stat-card:hover{transform:none;box-shadow:var(--card-shadow)}
+    .contact-card:hover{transform:none;box-shadow:var(--card-shadow)}
+    .mobile-card:hover{transform:none;box-shadow:0 2px 12px rgba(0,0,0,.04)}
+    .feed-card:hover{transform:none;box-shadow:var(--card-shadow)}
+    .btn:not(:active):hover{transform:none !important;box-shadow:none !important}
+    .btn-primary:hover{animation:none}
+    .bottom-nav a:hover{transform:none}
+    .upload-zone:hover{transform:none}
+    .nav-links a:hover{transform:none}
+}
 
 /* === Print === */
 @media print{
@@ -806,3 +1179,211 @@ img.lazy{
     opacity:0;transition:opacity .4s;
 }
 img.lazy.loaded{ opacity:1 }
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPREHENSIVE RESPONSIVE — ALL DEVICE SIZES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* === Global overflow-wrap for Thai text === */
+body, .glass-card, .mobile-card, .feed-body, .mc-row, .mc-header{
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+/* Long emails / IDs in mc-row won't overflow card edge */
+.mc-row span:last-child{ overflow-wrap: anywhere; min-width:0 }
+.mc-header strong{ overflow-wrap: anywhere; min-width:0 }
+
+/* === form-row: remove double-spacing between stacked form-groups === */
+/* form-group.margin-bottom + form-row.gap would double-space — reset margin when inside form-row */
+.form-row > .form-group{ margin-bottom:0 }
+/* Restore standard margin for last child so space after form-row is normal */
+.form-row > .form-group:last-child{ margin-bottom:0 }
+
+/* === nav-brand shrink on very narrow screens === */
+@media (max-width:360px){
+    .nav-brand{ font-size:.88rem }
+    .nav-container{ padding:.45rem .6rem }
+}
+
+/* === auth-wrapper: tighter padding at small sizes === */
+@media (max-width:360px){
+    .auth-wrapper{ padding:.8rem .4rem }
+    .auth-wrapper .glass-card{ border-radius:14px }
+}
+
+/* === Bottom-nav labels: truncate long text on tiny screens === */
+.bottom-nav a span{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    max-width:56px;
+    display:inline-block;
+}
+@media (max-width:360px){
+    .bottom-nav a span{ max-width:44px; font-size:.58rem }
+}
+@media (max-width:320px){
+    .bottom-nav a span{ display:none }  /* hide labels — show only icons at 320px */
+}
+
+/* === Filter bar: tighter on small phones === */
+@media (max-width:420px){
+    .filter-bar .btn-sm{
+        font-size:.75rem;
+        padding:.35rem .55rem;
+    }
+}
+@media (max-width:360px){
+    .filter-bar .btn-sm{
+        font-size:.72rem;
+        padding:.3rem .45rem;
+    }
+}
+
+/* === flex-between: prevent overflow on very small screens === */
+@media (max-width:420px){
+    .flex-between > h3,
+    .flex-between > h2{
+        font-size:1rem;
+    }
+}
+
+/* === Glass card: ensure content never causes horizontal scroll === */
+.glass-card, .mobile-card, .stat-card, .contact-card, .feed-card{
+    min-width:0;
+}
+
+/* === Table responsive: ensure container never overflows === */
+.table-responsive{
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+
+/* === Stats grid: guard against narrow column overflow === */
+.stats-grid .stat-label{
+    font-size: clamp(.68rem, 2.5vw, .82rem);
+}
+.stats-grid .stat-value{
+    font-size: clamp(1.1rem, 4vw, 1.5rem);
+}
+
+/* === Contact cards: ensure avatar doesn't overflow === */
+.contact-avatar{ flex-shrink:0 }
+
+/* === Page header: tighter on medium phones === */
+@media (max-width:600px){
+    .page-header{ margin-bottom:1rem }
+    .page-header h2{ font-size:clamp(1.1rem,5vw,1.4rem) }
+    .page-header p{ font-size:clamp(.78rem,3vw,.9rem) }
+}
+
+/* === glass-card padding: use clamp for smoother scaling === */
+@media (min-width:361px) and (max-width:600px){
+    .glass-card{ padding: clamp(.9rem, 3vw, 1.2rem) }
+}
+
+/* === input-group: prevent @kmitl.ac.th suffix overflow === */
+@media (max-width:360px){
+    .input-group-text{ font-size:.72rem; padding:0 .5rem }
+}
+
+/* === Modal glass-card: ensure full width on small phones === */
+.modal-overlay .glass-card,
+.modal-legacy .glass-card,
+.modal-inner{
+    width:100%;
+    min-width:0;
+}
+
+/* === Upload zone: smaller on mobile === */
+@media (max-width:420px){
+    .upload-zone{ padding:1rem .8rem }
+    .upload-zone i{ font-size:1.5rem }
+}
+
+/* === Feed cards: prevent image overflow === */
+.feed-image{ max-height:220px; object-fit:cover }
+@media (max-width:600px){
+    .feed-image{ max-height:180px }
+}
+
+/* === Stats grid 3-col: clamp text on all sizes === */
+.stats-grid-3 .stat-value{
+    font-size: clamp(.95rem, 3.5vw, 1.5rem);
+}
+.stats-grid-3 .stat-label{
+    font-size: clamp(.65rem, 2vw, .78rem);
+    line-height: 1.2;
+}
+
+/* === Tasks grid: single col on phones, multi-col on desktop === */
+@media (min-width:601px) and (max-width:950px){
+    .tasks-grid{ grid-template-columns: repeat(2,1fr) }
+}
+
+/* === Bottom-nav: ensure safe-area padding on all phones === */
+@media (max-width:950px){
+    .bottom-nav{
+        padding-bottom: max(var(--safe-bottom), 4px);
+    }
+}
+
+/* === Page container: full bleed on very small phones === */
+@media (max-width:320px){
+    .page-container,
+    .page-container-md,
+    .page-container-sm{
+        padding:0;
+    }
+}
+
+/* === Prevent btn overflow in flex containers === */
+.btn{ min-width:0; overflow:hidden; text-overflow:ellipsis }
+/* But keep white-space:nowrap for single-line buttons */
+.btn-sm{ white-space:nowrap }
+
+/* === Logged-out pages: remove bottom padding for bottom-nav === */
+/* bottom-nav only shows when logged in; prevent empty space on login/register/studio pages */
+body:not(:has(.bottom-nav[style*="block"])){
+    /* Note: :has() selector for modern browsers */
+}
+/* Safer approach: handle via body padding only for pages with bottom-nav */
+.bottom-nav + * { /* footer or content after bottom-nav */ }
+
+/* === Responsive images in glass-cards === */
+.glass-card img:not(.contact-avatar):not(#avatar-preview){
+    max-width:100%;
+    height:auto;
+    border-radius:var(--radius-xs);
+}
+
+/* === Fix select overflow in table cells on mobile === */
+.mc-actions select.form-control{
+    font-size:.82rem;
+    min-width:0;
+    flex:1;
+}
+
+/* === Landscape phones: tighter layout === */
+@media (max-width:950px) and (orientation:landscape){
+    .page-header{ margin-bottom:.6rem }
+    .page-header h2{ font-size:1.1rem }
+    .glass-card{ padding:.9rem }
+    .stats-grid{ margin-bottom:1rem }
+}
+
+/* === Wide screens: better content width === */
+@media (min-width:1200px){
+    .page-container{ max-width:960px }
+    .page-container-md{ max-width:720px }
+    .page-container-sm{ max-width:560px }
+}
+
+/* === Ensure form-row responsive at all sizes === */
+/* Default: column (mobile-first) */
+/* 601-950px: row (tablet) — already set */
+/* >950px: row (desktop) — already set */
+/* Explicitly handle 421-600px: ensure column */
+@media (min-width:421px) and (max-width:600px){
+    .form-row{ flex-direction:column !important }
+}

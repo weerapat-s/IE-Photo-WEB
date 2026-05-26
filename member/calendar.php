@@ -45,7 +45,7 @@ require_once __DIR__ . '/../includes/header.php';
     <span class="badge" style="background:rgba(245,158,11,.1);color:#f59e0b;">● รอการอนุมัติ</span>
 </div>
 
-<div class="glass-card animate-in" style="padding:1.5rem;">
+<div class="glass-card animate-in" style="padding:clamp(.8rem,3vw,1.5rem);">
     <div id="calendar"></div>
 </div>
 
