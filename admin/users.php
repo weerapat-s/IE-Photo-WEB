@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-$users = $pdo->query("SELECT id, student_id, first_name, last_name, email, role, created_at FROM users ORDER BY role DESC, student_id ASC")->fetchAll();
+$users = $pdo->query("SELECT id, student_id, first_name, last_name, email, phone, role, created_at FROM users ORDER BY role DESC, student_id ASC")->fetchAll();
 
 $base_url   = '../';
 $page_title = 'จัดการสมาชิก';
@@ -114,6 +114,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <th>รหัสนักศึกษา</th>
                         <th>ชื่อ-นามสกุล</th>
                         <th>อีเมล</th>
+                        <th>เบอร์โทร</th>
                         <th>บทบาท</th>
                         <th style="min-width:320px">จัดการ</th>
                     </tr>
@@ -129,6 +130,16 @@ require_once __DIR__ . '/../includes/header.php';
                             ?>
                         </td>
                         <td><?php echo htmlspecialchars($u['email']); ?></td>
+                        <td>
+                            <?php if (!empty($u['phone'])): ?>
+                                <a href="tel:<?php echo htmlspecialchars($u['phone']); ?>"
+                                   style="color:#06c755;font-weight:600;white-space:nowrap;text-decoration:none;">
+                                    <i class="ph ph-phone-call"></i> <?php echo htmlspecialchars($u['phone']); ?>
+                                </a>
+                            <?php else: ?>
+                                <span class="text-muted" style="font-size:.82rem;">—</span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <?php
                                 $badgeClass = match($u['role']) {
@@ -232,6 +243,17 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="mc-row">
                 <span class="mc-label">อีเมล</span>
                 <span><?php echo htmlspecialchars($u['email']); ?></span>
+            </div>
+            <div class="mc-row">
+                <span class="mc-label">เบอร์โทร</span>
+                <span><?php if (!empty($u['phone'])): ?>
+                    <a href="tel:<?php echo htmlspecialchars($u['phone']); ?>"
+                       style="color:#06c755;font-weight:600;text-decoration:none;">
+                        <i class="ph ph-phone-call"></i> <?php echo htmlspecialchars($u['phone']); ?>
+                    </a>
+                <?php else: ?>
+                    <span class="text-muted">—</span>
+                <?php endif; ?></span>
             </div>
 
             <?php
